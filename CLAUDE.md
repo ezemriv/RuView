@@ -107,3 +107,28 @@ ESP32 with CSI firmware from `firmware/esp32-csi-node/`. When connected:
 
 - `main` — stable, merged changes
 - `home-security-telegram` — active feature branch (first big addition)
+
+---
+
+## Syncing with Upstream
+
+To pull in updates from the original `ruvnet/RuView` repo:
+
+```bash
+gh repo sync ezemriv/RuView --source ruvnet/RuView --branch main
+git pull origin main
+```
+
+Run this occasionally to pick up upstream Rust/firmware improvements without losing local changes.
+
+---
+
+## Session Resume
+
+**Always read `PROJECT_STATUS.md` before starting any work.** It contains:
+- What was last completed and when
+- Exact current state of the system
+- Next steps ordered by priority
+- Quick-reference commands
+
+After finishing any meaningful work, run `/update-status` to keep it current.
