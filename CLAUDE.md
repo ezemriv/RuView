@@ -47,12 +47,11 @@ docker run -d --name ruview-alarm --restart unless-stopped \
   -p 3000:3000 -p 3001:3001 -p 5005:5005/udp \
   ruview-telegram
 
-# Run (ESP32 mode — once hardware is connected)
+# Run (ESP32 mode — hardware connected, see Hardware section below)
 docker run -d --name ruview-alarm --restart unless-stopped \
   --env-file .env \
   -p 3000:3000 -p 3001:3001 -p 5005:5005/udp \
-  -e CSI_SOURCE=esp32 \
-  ruview-telegram
+  ruview-telegram /app/scripts/start_esp32.sh
 
 # Logs / stop
 docker logs ruview-alarm
@@ -92,12 +91,55 @@ docker stop ruview-alarm && docker rm ruview-alarm
 
 ---
 
-## Hardware (future)
+## Hardware (working as of 2026-03-14)
 
-ESP32 with CSI firmware from `firmware/esp32-csi-node/`. When connected:
-- Set target IP to Mac's local IP (`192.168.1.23`) in `provision.py`
-- ESP32 sends UDP frames to port 5005
-- Switch container to `CSI_SOURCE=esp32`
+**Freenove ESP32-S3-WROOM Board Lite** successfully connected to home network (MiFibra-DA52), sends real CSI data via UDP to port 5005.
+
+### Hardware Setup
+
+The board has TWO USB-C ports:
+- **OTG port** (labeled "OTG"): works for flashing, NOT for serial monitor
+- **UART port** (labeled "RX/TX"): for ESP_LOG serial output, requires CH343 driver
+
+**To see serial monitor output:**
+1. Install CH343 driver from [WCH](http://www.wch.cn/downloads/CH343SER_MAC_ZIP.html)
+2. Restart Mac
+3. Serial output appears on `/dev/cu.wchusbserial*` (not `/dev/cu.usbmodem*`)
+
+### Firmware Build & Flash
+
+**Build firmware in Docker** (run from repo root):
+```bash
+docker run --rm -v $(pwd)/firmware/esp32-csi-node:/project -w /project espressif/idf:v5.2 \
+  bash -c "rm -f sdkconfig && idf.py set-target esp32s3 && idf.py build"
+```
+
+**Flash via UART port** (replace `/dev/cu.wchusbserial58FA0422681` with your actual device):
+```bash
+esptool.py --chip esp32s3 --port /dev/cu.wchusbserial58FA0422681 --baud 460800 write_flash \
+  0x0 firmware/esp32-csi-node/build/bootloader/bootloader.bin \
+  0x8000 firmware/esp32-csi-node/build/partition_table/partition-table.bin \
+  0xf000 firmware/esp32-csi-node/build/ota_data_initial.bin \
+  0x20000 firmware/esp32-csi-node/build/esp32-csi-node.bin
+```
+
+**Note:** `sdkconfig.defaults` contains `CONFIG_ESP_WIFI_CSI_ENABLED=y` and is tracked in git. Must delete the generated `sdkconfig` before building so the defaults take effect.
+
+### Running with ESP32
+
+**Docker run command** (NOT using `CSI_SOURCE` env var — that is ignored):
+```bash
+docker run -d --name ruview-alarm --restart unless-stopped \
+  --env-file .env \
+  -p 3000:3000 -p 3001:3001 -p 5005:5005/udp \
+  ruview-telegram /app/scripts/start_esp32.sh
+```
+
+The `start_esp32.sh` script disables simulation mode and listens on UDP 5005 for real CSI frames.
+
+### Known Issues
+
+- **Task watchdog warnings** on CPU 1 from `edge_dsp` task — "Fall detected" spam indicates fall detection threshold (2.0) is too sensitive for normal CSI variance. Non-critical, but noisy.
 
 **CGNAT note:** Public IP ≠ local IP on this network. Port-forwarding to internet requires WireGuard tunnel. Not needed for local-only use.
 
