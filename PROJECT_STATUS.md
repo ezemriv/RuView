@@ -1,7 +1,7 @@
 # RuView Home Security — Project Status
 
 ## Current State
-A fully operational home alarm system running in Docker on a local Mac. The Rust sensing server (`wifi-densepose-sensing-server`) serves HTTP on port 3000 and WebSocket on 3001. A Python Telegram alerter (`scripts/telegram_alert.py`) runs as a sidecar process inside the same container, polls `/api/v1/sensing/latest` every 5 seconds, and sends Telegram messages on presence transitions. The bot supports **Arm / Disarm / Status inline keyboard buttons** — the system starts disarmed so normal household movement doesn't trigger alerts. As of 2026-03-14, the system is **running in ESP32 mode with real CSI data** — a Freenove ESP32-S3-WROOM Board Lite is connected to WiFi (MiFibra-DA52, IP 192.168.1.36), sends CSI data via UDP to port 5005. The Docker image (`ruview-telegram`) is built with `uv` for Python runtime (no apt-python) and `--restart unless-stopped` for persistence across reboots.
+**Tested locally on Mac, not yet deployed to VPS.** A fully operational home alarm system running in Docker on a local Mac. The Rust sensing server (`wifi-densepose-sensing-server`) serves HTTP on port 3000 and WebSocket on 3001. A Python Telegram alerter (`scripts/telegram_alert.py`) runs as a sidecar process inside the same container, polls `/api/v1/sensing/latest` every 5 seconds, and sends Telegram messages on presence transitions. The bot supports **Arm / Disarm / Status inline keyboard buttons** — the system starts disarmed so normal household movement doesn't trigger alerts. As of 2026-03-14, the system is **running in ESP32 mode with real CSI data** — a Freenove ESP32-S3-WROOM Board Lite is connected to WiFi (MiFibra-DA52, IP 192.168.1.36), sends CSI data via UDP to port 5005. **LIMITATION**: Mac must be on and Docker running for alerts to work. Next step: deploy to Contabo VPS to make the system run continuously (24/7). The Docker image (`ruview-telegram`) is built with `uv` for Python runtime (no apt-python) and `--restart unless-stopped` for persistence across reboots.
 
 ## Completed
 
@@ -33,8 +33,8 @@ A fully operational home alarm system running in Docker on a local Mac. The Rust
 - Tested: startup Telegram message received, arm/disarm buttons work, motion alert fires when armed
 
 ## Next Steps
-1. **Calibrate presence thresholds** — tune `CLEAR_DELAY` (currently 60s) and possibly add a confidence threshold filter on `classification.confidence`; also tune fall detection threshold to reduce watchdog spam
-2. **VPS deployment** — if you want the alarm to work while Mac is off; requires WireGuard tunnel due to CGNAT. Hetzner CAX11 recommended. Will need to run sensing server + Telegram bot on VPS, receive CSI from ESP32 via tunnel.
+1. **VPS deployment** — **REQUIRED for 24/7 operation** — deploy to Contabo VPS so alarm works when Mac is off. Flow: generate NVS binary with VPS IP, re-flash ESP32, push code to VPS, build Docker image, run container with `start_esp32.sh`. No tunnel needed — ESP32 sends UDP outbound to VPS (works through CGNAT).
+2. **Calibrate presence thresholds** — tune `CLEAR_DELAY` (currently 60s) and possibly add a confidence threshold filter on `classification.confidence`; also tune fall detection threshold to reduce watchdog spam
 3. **(Optional) Provision ESP32 with fixed IP** — run `provision.py` with target IP set to a static local IP (currently DHCP 192.168.1.36)
 4. **(Optional) Camera integration** — add a snapshot URL to the motion alert message
 5. **(Optional) Multi-room setup** — add a second ESP32 in another room, run separate or mesh together
