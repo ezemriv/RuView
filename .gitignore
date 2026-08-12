@@ -304,3 +304,6 @@ ruvector.db
 # snapshots + the generated session-secret) — never tracked
 v2/crates/wifi-densepose-sensing-server/data/
 *.proptest-regressions
+
+# Local Codex implementation worktrees
+.worktrees/
