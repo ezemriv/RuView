@@ -24,18 +24,16 @@ void nvs_config_load(nvs_config_t *cfg)
     }
 
     /* Start with Kconfig compiled defaults */
-    strncpy(cfg->wifi_ssid, CONFIG_CSI_WIFI_SSID, NVS_CFG_SSID_MAX - 1);
-    cfg->wifi_ssid[NVS_CFG_SSID_MAX - 1] = '\0';
+    strlcpy(cfg->wifi_ssid, CONFIG_CSI_WIFI_SSID, sizeof(cfg->wifi_ssid));
 
 #ifdef CONFIG_CSI_WIFI_PASSWORD
-    strncpy(cfg->wifi_password, CONFIG_CSI_WIFI_PASSWORD, NVS_CFG_PASS_MAX - 1);
-    cfg->wifi_password[NVS_CFG_PASS_MAX - 1] = '\0';
+    strlcpy(cfg->wifi_password, CONFIG_CSI_WIFI_PASSWORD,
+            sizeof(cfg->wifi_password));
 #else
     cfg->wifi_password[0] = '\0';
 #endif
 
-    strncpy(cfg->target_ip, CONFIG_CSI_TARGET_IP, NVS_CFG_IP_MAX - 1);
-    cfg->target_ip[NVS_CFG_IP_MAX - 1] = '\0';
+    strlcpy(cfg->target_ip, CONFIG_CSI_TARGET_IP, sizeof(cfg->target_ip));
 
     cfg->target_port = (uint16_t)CONFIG_CSI_TARGET_PORT;
     cfg->node_id     = (uint8_t)CONFIG_CSI_NODE_ID;
@@ -61,7 +59,7 @@ void nvs_config_load(nvs_config_t *cfg)
 #ifdef CONFIG_EDGE_FALL_THRESH
     cfg->fall_thresh = (float)CONFIG_EDGE_FALL_THRESH / 1000.0f;
 #else
-    cfg->fall_thresh = 2.0f;
+    cfg->fall_thresh = 15.0f;  /* Default raised from 2.0 — see issue #263. */
 #endif
     cfg->vital_window = 256;
 #ifdef CONFIG_EDGE_VITAL_INTERVAL_MS
@@ -91,6 +89,11 @@ void nvs_config_load(nvs_config_t *cfg)
     cfg->wasm_verify = 0;  /* Kconfig disabled signature verification. */
 #endif
 
+    /* ADR-060: Channel override and MAC filter defaults. */
+    cfg->csi_channel = 0;  /* 0 = auto-detect from connected AP. */
+    cfg->filter_mac_set = 0;
+    memset(cfg->filter_mac, 0, 6);
+
     /* Try to override from NVS */
     nvs_handle_t handle;
     esp_err_t err = nvs_open("csi_cfg", NVS_READONLY, &handle);
@@ -105,24 +108,21 @@ void nvs_config_load(nvs_config_t *cfg)
     /* WiFi SSID */
     len = sizeof(buf);
     if (nvs_get_str(handle, "ssid", buf, &len) == ESP_OK && len > 1) {
-        strncpy(cfg->wifi_ssid, buf, NVS_CFG_SSID_MAX - 1);
-        cfg->wifi_ssid[NVS_CFG_SSID_MAX - 1] = '\0';
+        strlcpy(cfg->wifi_ssid, buf, sizeof(cfg->wifi_ssid));
         ESP_LOGI(TAG, "NVS override: ssid=%s", cfg->wifi_ssid);
     }
 
     /* WiFi password */
     len = sizeof(buf);
     if (nvs_get_str(handle, "password", buf, &len) == ESP_OK) {
-        strncpy(cfg->wifi_password, buf, NVS_CFG_PASS_MAX - 1);
-        cfg->wifi_password[NVS_CFG_PASS_MAX - 1] = '\0';
+        strlcpy(cfg->wifi_password, buf, sizeof(cfg->wifi_password));
         ESP_LOGI(TAG, "NVS override: password=***");
     }
 
     /* Target IP */
     len = sizeof(buf);
     if (nvs_get_str(handle, "target_ip", buf, &len) == ESP_OK && len > 1) {
-        strncpy(cfg->target_ip, buf, NVS_CFG_IP_MAX - 1);
-        cfg->target_ip[NVS_CFG_IP_MAX - 1] = '\0';
+        strlcpy(cfg->target_ip, buf, sizeof(cfg->target_ip));
         ESP_LOGI(TAG, "NVS override: target_ip=%s", cfg->target_ip);
     }
 
@@ -275,6 +275,46 @@ void nvs_config_load(nvs_config_t *cfg)
                  cfg->wasm_pubkey[30], cfg->wasm_pubkey[31]);
     } else if (cfg->wasm_verify) {
         ESP_LOGW(TAG, "wasm_verify=1 but no wasm_pubkey in NVS — uploads will be rejected");
+    }
+
+    /* ADR-060: CSI channel override. */
+    uint8_t csi_ch_val;
+    if (nvs_get_u8(handle, "csi_channel", &csi_ch_val) == ESP_OK) {
+        if ((csi_ch_val >= 1 && csi_ch_val <= 14) || (csi_ch_val >= 36 && csi_ch_val <= 177)) {
+            cfg->csi_channel = csi_ch_val;
+            ESP_LOGI(TAG, "NVS override: csi_channel=%u", (unsigned)cfg->csi_channel);
+        } else {
+            ESP_LOGW(TAG, "NVS csi_channel=%u invalid, ignored", (unsigned)csi_ch_val);
+        }
+    }
+
+    /* ADR-060: MAC address filter (6-byte blob). */
+    size_t mac_len = 6;
+    if (nvs_get_blob(handle, "filter_mac", cfg->filter_mac, &mac_len) == ESP_OK && mac_len == 6) {
+        cfg->filter_mac_set = 1;
+        ESP_LOGI(TAG, "NVS override: filter_mac=%02x:%02x:%02x:%02x:%02x:%02x",
+                 cfg->filter_mac[0], cfg->filter_mac[1], cfg->filter_mac[2],
+                 cfg->filter_mac[3], cfg->filter_mac[4], cfg->filter_mac[5]);
+    }
+
+    /* ADR-066: Swarm bridge */
+    len = sizeof(cfg->seed_url);
+    if (nvs_get_str(handle, "seed_url", cfg->seed_url, &len) != ESP_OK) {
+        cfg->seed_url[0] = '\0';  /* Disabled by default */
+    }
+    len = sizeof(cfg->seed_token);
+    if (nvs_get_str(handle, "seed_token", cfg->seed_token, &len) != ESP_OK) {
+        cfg->seed_token[0] = '\0';
+    }
+    len = sizeof(cfg->zone_name);
+    if (nvs_get_str(handle, "zone_name", cfg->zone_name, &len) != ESP_OK) {
+        strlcpy(cfg->zone_name, "default", sizeof(cfg->zone_name));
+    }
+    if (nvs_get_u16(handle, "swarm_hb", &cfg->swarm_heartbeat_sec) != ESP_OK) {
+        cfg->swarm_heartbeat_sec = 30;
+    }
+    if (nvs_get_u16(handle, "swarm_ingest", &cfg->swarm_ingest_sec) != ESP_OK) {
+        cfg->swarm_ingest_sec = 5;
     }
 
     /* Validate tdm_slot_index < tdm_node_count */

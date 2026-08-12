@@ -80,7 +80,16 @@ def generate_nvs_binary(csv_content, size):
     bin_path = csv_path.replace(".csv", ".bin")
 
     try:
-        # Try the pip-installed version first
+        # Try the pip-installed version first (esp_idf_nvs_partition_gen package)
+        try:
+            from esp_idf_nvs_partition_gen import nvs_partition_gen
+            nvs_partition_gen.generate(csv_path, bin_path, size)
+            with open(bin_path, "rb") as f:
+                return f.read()
+        except ImportError:
+            pass
+
+        # Try legacy import name (older versions)
         try:
             import nvs_partition_gen
             nvs_partition_gen.generate(csv_path, bin_path, size)
@@ -94,7 +103,9 @@ def generate_nvs_binary(csv_content, size):
         gen_script = os.path.join(idf_path, "components", "nvs_flash",
                                   "nvs_partition_generator", "nvs_partition_gen.py")
         if os.path.isfile(gen_script):
-            subprocess.check_call([
+            # Fixed interpreter/script plus an argv list (never a shell);
+            # csv_path/bin_path are private NamedTemporaryFile paths.
+            subprocess.check_call([  # nosemgrep: dangerous-subprocess-use-tainted-env-args
                 sys.executable, gen_script, "generate",
                 csv_path, bin_path, hex(size)
             ])
@@ -204,7 +215,7 @@ def main():
     if args.ssid:
         print(f"  WiFi SSID:     {args.ssid}")
     if args.password is not None:
-        print(f"  WiFi Password: {'*' * len(args.password)}")
+        print(f"  WiFi Password: {'(set)' if args.password else '(empty)'}")
     if args.target_ip:
         print(f"  Target IP:     {args.target_ip}")
     if args.target_port:

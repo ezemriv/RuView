@@ -12,6 +12,10 @@
 
 #include "sdkconfig.h"
 #include "wasm_runtime.h"
+#include "nvs_config.h"
+#include "csi_collector.h"  /* csi_collector_get_node_id() - defensive #390 */
+
+extern nvs_config_t g_nvs_config;
 
 #if defined(CONFIG_WASM_ENABLE) && defined(WASM3_AVAILABLE)
 
@@ -380,11 +384,7 @@ static void send_wasm_output(uint8_t slot_id)
     memset(&pkt, 0, sizeof(pkt));
 
     pkt.magic = WASM_OUTPUT_MAGIC;
-#ifdef CONFIG_CSI_NODE_ID
-    pkt.node_id = (uint8_t)CONFIG_CSI_NODE_ID;
-#else
-    pkt.node_id = 0;
-#endif
+    pkt.node_id = csi_collector_get_node_id();  /* #390: defensive copy */
     pkt.module_id = slot_id;
     pkt.event_count = n_filtered;
 
@@ -786,8 +786,7 @@ esp_err_t wasm_runtime_set_manifest(uint8_t module_id, const char *module_name,
     }
 
     if (module_name) {
-        strncpy(slot->module_name, module_name, 31);
-        slot->module_name[31] = '\0';
+        strlcpy(slot->module_name, module_name, sizeof(slot->module_name));
     }
     slot->capabilities = capabilities;
     slot->manifest_budget_us = max_frame_us;
