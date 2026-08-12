@@ -32,6 +32,17 @@ Record, when authorized:
 - VPS SSH/firewall authorization outcome; and
 - mode-`0600` production environment-file check outcome without values.
 
+### Discovery — 2026-08-12T17:11:57Z
+
+- Operator role: repository owner (identity not recorded).
+- `serial.tools.list_ports` found only Bluetooth and macOS debug devices; no
+  ESP32 USB/UART identifier was available.
+- Board model and flash capacity: unconfirmed.
+- Full-flash authorization: not yet granted.
+- VPS SSH/firewall authority: not yet confirmed.
+- Production mode-`0600` environment file: not yet created or inspected.
+- No hardware, credential, firewall, VPS, or deployment mutation occurred.
+
 ## Step 3 evidence — firmware and ESP32-S3
 
 Record, when authorized:
