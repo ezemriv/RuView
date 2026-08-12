@@ -136,12 +136,12 @@ a skip, and the merge commit plus command outcomes are recorded here.
   authorization for the flash, confirm VPS SSH/firewall authority, and create
   the production mode-`0600` `.env` through an operator-controlled channel.
 
-**Blocked (2026-08-12):** macOS currently exposes only Bluetooth and debug
-serial devices; no ESP32 USB/UART port is present. Connect the intended board
-with a data-capable USB cable, confirm its printed model and flash capacity,
-and explicitly authorize replacing its current firmware. VPS SSH/firewall
-authority and the protected production environment file also remain to be
-confirmed. See the Step 2 discovery entry in the
+**Blocked (2026-08-12):** the UART bridge is now detected at
+`/dev/cu.wchusbserial58FA0422681`, but its USB identity does not establish the
+exact ESP32-S3 board model or flash capacity. Confirm those printed board
+details and explicitly authorize replacing its current firmware. VPS
+SSH/firewall authority and the protected production environment file also
+remain to be confirmed. See the Step 2 discovery entries in the
 [`Level 4 acceptance record`](../../deploy/home-alarm/verification/level4-acceptance.md#step-2-evidence--operator-inputs-and-authority).
 
 **Depends on:** Step 1.

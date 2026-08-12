@@ -43,6 +43,17 @@ Record, when authorized:
 - Production mode-`0600` environment file: not yet created or inspected.
 - No hardware, credential, firewall, VPS, or deployment mutation occurred.
 
+### UART connection — 2026-08-12T17:19:24Z
+
+- The board was connected through its port labeled `USB UART` using a
+  data-capable cable.
+- Confirmed macOS UART identifier: `/dev/cu.wchusbserial58FA0422681`.
+- USB bridge identity: `USB Single Serial`, WCH VID:PID `1A86:55D3`.
+- Board model and flash capacity remain unconfirmed because the bridge
+  identity is not sufficient to establish them.
+- No serial query, reset, erase, flash, provisioning, or credential action was
+  performed.
+
 ## Step 3 evidence — firmware and ESP32-S3
 
 Record, when authorized:
