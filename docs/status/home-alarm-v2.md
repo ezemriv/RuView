@@ -3,7 +3,7 @@
 **Last reconciled:** 2026-08-12
 **Feature branch:** `codex/upstream-home-alarm-v2-implementation`
 **Implementation and software-verification tip:** `cc66b478`
-**Integration target:** `codex/upstream-home-alarm-v2` at `0809900b`
+**Integration branch:** `codex/upstream-home-alarm-v2`; local merge commit `8f3563f6`
 **Upstream baseline:** RuView `v2235` at `de27336fa1db971d4689fd2db19610e8a7966dee`
 
 This is the canonical living status and restart handoff for Home Alarm v2.
@@ -14,7 +14,8 @@ for their own scope, but mutable status and next-step ownership live here.
 
 - Software implementation is complete.
 - Levels 1–3 are complete and independently reviewed.
-- The feature branch has not been integrated, pushed, or deployed.
+- The feature branch is integrated locally and verified at merge commit
+  `8f3563f6`; it has not been pushed or deployed.
 - Level 4 physical ESP32/VPS acceptance is not started and is the only basis
   for calling the real home alarm operational.
 - No real token, chat ID, Wi-Fi credential, VPS secret, or private CSI was
@@ -73,7 +74,7 @@ for their own scope, but mutable status and next-step ownership live here.
 
 The dated evidence record is
 [`deploy/home-alarm/verification/software-verification.md`](../../deploy/home-alarm/verification/software-verification.md).
-The final branch-tip rerun established:
+The feature-tip and merged-checkout reruns established:
 
 - frozen dependency sync: passed with the tracked lock unchanged;
 - non-container suite: 121 passed, 1 container test deselected;
@@ -110,9 +111,15 @@ Agents must execute this checklist strictly from the first unchecked step.
 
 ### 1. Integrate the feature branch
 
-- [ ] Merge `codex/upstream-home-alarm-v2-implementation` into
+- [x] Merge `codex/upstream-home-alarm-v2-implementation` into
   `codex/upstream-home-alarm-v2` locally, preserving the implementation branch
   until the merged result is verified.
+
+**Outcome (2026-08-12):** merged locally as `8f3563f6`; frozen sync,
+121 non-container tests, Ruff, Compose validation, and the isolated container
+smoke all passed on the merged checkout. The unrelated root `uv.lock` and the
+pre-existing `ruview-alarm` container were preserved. See
+[`Local integration confirmation`](../../deploy/home-alarm/verification/software-verification.md#local-integration-confirmation).
 
 **Prerequisite:** explicit user choice to merge locally.
 **Complete when:** the target branch contains the feature commits, the merged

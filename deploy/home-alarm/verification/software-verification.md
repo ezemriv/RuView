@@ -136,3 +136,29 @@ was rerun at `cc66b478`:
 
 This confirms Levels 1–3 at the implementation tip. It does not change the
 unperformed Level 4 verdict.
+
+## Local integration confirmation
+
+**Date (UTC):** 2026-08-12T17:09:08Z
+**Target branch:** `codex/upstream-home-alarm-v2`
+**Merge commit:** `8f3563f6103b4829113bdd2d69690c17c7a01956`
+
+The authorized local merge used `--no-ff` and preserved the implementation
+branch for rollback. On the merged checkout:
+
+- frozen sync installed the 39 locked packages without changing the tracked
+  lock file;
+- the non-container gate passed with 121 tests and 1 deselected container test;
+- Ruff and production Compose validation passed;
+- the isolated container gate passed with 1 selected test and 4 support tests
+  deselected; and
+- the unrelated root `uv.lock` remained untracked and unchanged.
+
+The socket-based tests and Docker smoke required local permissions unavailable
+inside the command sandbox. Their permission-enabled reruns passed without a
+code change. Four exact `ruview-alarm-smoke-*` image tags left by interrupted
+verification were removed; the final read-only check found no smoke image or
+volume, and the pre-existing `ruview-alarm` container remained running.
+
+This is software integration evidence only. Level 4 physical ESP32/VPS
+acceptance remains unperformed.
