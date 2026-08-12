@@ -15,8 +15,10 @@ dependencies = [
 [project.optional-dependencies]
 provision = [
     "esptool>=5,<6",
-    "esp-idf-nvs-partition-gen>=1.0,<2",
+    "esp-idf-nvs-partition-gen>=0.2,<0.4",
 ]
+
+[dependency-groups]
 dev = [
     "pytest>=8.4,<9",
     "pytest-asyncio>=1.1,<2",

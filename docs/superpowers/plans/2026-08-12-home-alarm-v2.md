@@ -61,7 +61,7 @@
 
 - [ ] **Step 1: Write the package metadata and failing settings/model tests**
 
-Create a `hatchling` package rooted at `src`, require Python `>=3.12,<3.13`, and declare runtime dependencies `httpx>=0.28.1,<0.29` and `pydantic-settings>=2.10,<3`. Add an optional `provision` extra with `esptool>=5,<6` and `esp-idf-nvs-partition-gen>=1.0,<2`. Add development dependencies `pytest>=8.4,<9`, `pytest-asyncio>=1.1,<2`, and `ruff>=0.12,<0.13`. Configure pytest with `asyncio_mode = "auto"` and Ruff for Python 3.12 with a 100-character line length.
+Create a `hatchling` package rooted at `src`, require Python `>=3.12,<3.13`, and declare runtime dependencies `httpx>=0.28.1,<0.29` and `pydantic-settings>=2.10,<3`. Add an optional `provision` extra with `esptool>=5,<6` and `esp-idf-nvs-partition-gen>=0.2,<0.4`. Add development dependencies `pytest>=8.4,<9`, `pytest-asyncio>=1.1,<2`, and `ruff>=0.12,<0.13`. Configure pytest with `asyncio_mode = "auto"` and Ruff for Python 3.12 with a 100-character line length.
 
 Use named tests `test_settings_require_all_three_credentials`, `test_settings_apply_documented_defaults`, `test_settings_accept_constructor_overrides_without_env_file`, `test_validation_error_does_not_include_secret_values`, `test_persisted_state_has_exact_versioned_shape`, `test_sensor_sample_rejects_presence_without_healthy_esp32`, and `test_alarm_action_accepts_only_arm_disarm_status`. For example, the shape assertion is:
 
