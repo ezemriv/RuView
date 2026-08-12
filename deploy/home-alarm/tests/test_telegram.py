@@ -71,6 +71,25 @@ async def test_get_updates_recognizes_authorized_text_actions(text: str, action:
     assert updates == [TelegramUpdate(update_id=42, chat_id=123, action=action)]
 
 
+@pytest.mark.parametrize("text", ["arm", "disarm", "status"])
+async def test_get_updates_rejects_bare_authorized_chat_action_text(text: str) -> None:
+    """Bare text must remain inert; Telegram controls require a slash command."""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"ok": True, "result": [{"update_id": 421, "message": {"chat": {"id": 123}, "text": text}}]},
+        )
+
+    telegram, client = client_for(handler)
+    try:
+        updates = await telegram.get_updates(offset=421, timeout=20)
+    finally:
+        await client.aclose()
+
+    assert updates == [TelegramUpdate(update_id=421, chat_id=123)]
+
+
 async def test_get_updates_recognizes_authorized_callback_and_preserves_callback_id() -> None:
     """A configured-chat callback must become an action the service can acknowledge."""
 

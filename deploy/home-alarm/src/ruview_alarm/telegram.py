@@ -138,6 +138,8 @@ class TelegramClient:
         if not isinstance(text, str):
             return None
         command = text.split(maxsplit=1)[0].split("@", maxsplit=1)[0]
+        if not command.startswith("/"):
+            return None
         return TelegramClient._action(command.removeprefix("/"))
 
     @staticmethod
