@@ -43,11 +43,16 @@ def _run(
 def _compose(
     project: str, environment: dict[str, str], *arguments: str
 ) -> subprocess.CompletedProcess[str]:
+    return _run(_compose_command(project, *arguments), environment=environment)
+
+
+def _compose_command(project: str, *arguments: str) -> list[str]:
+    """Build one project-scoped Compose command."""
     command = ["docker", "compose"]
     for path in COMPOSE_FILES:
         command.extend(("-f", str(path)))
     command.extend(("--project-name", project, *arguments))
-    return _run(command, environment=environment)
+    return command
 
 
 def _request_json(
@@ -128,6 +133,97 @@ def _loopback_port(container: dict[str, Any], container_port: str) -> int:
     return host_port
 
 
+def _non_esp32_source(payload: Any) -> str:
+    """Extract a reported source while rejecting absent or ESP32 evidence."""
+    assert isinstance(payload, dict)
+    source = payload.get("source")
+    assert isinstance(source, str) and source
+    assert source.casefold() != "esp32"
+    return source
+
+
+def _cleanup_smoke(
+    project: str,
+    environment: dict[str, str],
+    alarm_image: str,
+    *,
+    runner: Callable[..., subprocess.CompletedProcess[str]] = _run,
+) -> list[str]:
+    """Attempt all scoped cleanup operations and return bounded failures."""
+    operations = (
+        (
+            "docker compose down",
+            _compose_command(project, "down", "--volumes", "--remove-orphans"),
+        ),
+        ("docker image rm", ["docker", "image", "rm", "-f", alarm_image]),
+    )
+    failures: list[str] = []
+    for label, command in operations:
+        try:
+            result = runner(command, environment=environment, check=False)
+        except OSError as error:
+            failures.append(f"{label}: {type(error).__name__}")
+            continue
+        if result.returncode != 0:
+            detail = result.stderr.strip()[:500] or f"exit {result.returncode}"
+            failures.append(f"{label}: {detail}")
+    return failures
+
+
+def _report_cleanup_failures(failures: list[str], primary_error: BaseException | None) -> None:
+    """Fail on cleanup alone, but retain and annotate an existing failure."""
+    if not failures:
+        return
+    summary = f"smoke cleanup failed: {'; '.join(failures)}"
+    if primary_error is not None:
+        primary_error.add_note(summary)
+        return
+    pytest.fail(summary)
+
+
+def test_smoke_source_evidence_rejects_esp32() -> None:
+    """A simulated smoke source must never satisfy the ESP32 evidence boundary."""
+    assert _non_esp32_source({"source": "simulated"}) == "simulated"
+    with pytest.raises(AssertionError):
+        _non_esp32_source({"source": "esp32"})
+
+
+def test_cleanup_attempts_down_then_exact_image_removal_and_preserves_primary() -> None:
+    """Cleanup must remove the scoped image even when Compose teardown fails."""
+    commands: list[list[str]] = []
+
+    def failing_down(
+        command: list[str], *, environment: dict[str, str], check: bool = True
+    ) -> subprocess.CompletedProcess[str]:
+        commands.append(command)
+        return subprocess.CompletedProcess(
+            command,
+            returncode=1 if "down" in command else 0,
+            stdout="",
+            stderr="teardown failed" if "down" in command else "",
+        )
+
+    failures = _cleanup_smoke(
+        "smoke-project",
+        {},
+        "smoke-project-alarm:test",
+        runner=failing_down,
+    )
+    primary = AssertionError("primary smoke failure")
+    _report_cleanup_failures(failures, primary)
+
+    assert commands[0][-3:] == ["down", "--volumes", "--remove-orphans"]
+    assert commands[1] == [
+        "docker",
+        "image",
+        "rm",
+        "-f",
+        "smoke-project-alarm:test",
+    ]
+    assert failures == ["docker compose down: teardown failed"]
+    assert "docker compose down: teardown failed" in primary.__notes__[0]
+
+
 def test_smoke_compose_builds_only_the_alarm_image() -> None:
     """The fake service must not race the alarm build for the same image tag."""
     environment = os.environ.copy()
@@ -190,6 +286,7 @@ def test_container_recreation_preserves_arm_state_without_weakening_source_auth(
         }
     )
 
+    primary_error: BaseException | None = None
     try:
         _compose(project, environment, "up", "-d", "--build", "--wait", "--wait-timeout", "120")
 
@@ -212,6 +309,19 @@ def test_container_recreation_preserves_arm_state_without_weakening_source_auth(
             return status == 200
 
         _wait_until(authenticated_latest_is_available)
+        authenticated_headers = {"Authorization": f"Bearer {ruview_sentinel}"}
+        latest_status, latest_payload = _request_json(
+            f"{sensing_url}/api/v1/sensing/latest",
+            headers=authenticated_headers,
+        )
+        assert latest_status == 200
+        _non_esp32_source(latest_payload)
+        health_status, health_payload = _request_json(
+            f"{sensing_url}/health",
+            headers=authenticated_headers,
+        )
+        assert health_status == 200
+        _non_esp32_source(health_payload)
         unauthorized_status, _ = _request_json(f"{sensing_url}/api/v1/sensing/latest")
         assert unauthorized_status == 401
 
@@ -297,5 +407,9 @@ def test_container_recreation_preserves_arm_state_without_weakening_source_auth(
         for sentinel in (telegram_sentinel, ruview_sentinel):
             assert sentinel not in serialized_config
             assert sentinel not in history
+    except BaseException as error:
+        primary_error = error
+        raise
     finally:
-        _compose(project, environment, "down", "--volumes", "--remove-orphans")
+        cleanup_failures = _cleanup_smoke(project, environment, alarm_image)
+        _report_cleanup_failures(cleanup_failures, primary_error)
