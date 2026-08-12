@@ -106,8 +106,8 @@ Build-derived flash settings and offsets: DIO, 8 MB, 80 MHz;
 bootloader `0x0`, partition table `0x8000`, OTA data `0xf000`, application
 `0x20000`.
 
-Pending exact command, to run from `deploy/home-alarm` only after final target
-confirmation:
+Exact build-derived command executed from `deploy/home-alarm` after final
+target confirmation:
 
 ```bash
 UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run python -m esptool \
@@ -120,9 +120,32 @@ UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run python -m esptool \
   0x20000 ../../firmware/esp32-csi-node/build/esp32-csi-node.bin
 ```
 
-- Final target confirmation: pending.
-- Full-flash outcome: not run.
-- Serial boot evidence: pending.
+### Clean flash and boot — 2026-08-12T17:31:47Z
+
+- Final target confirmation: granted for Freenove `FNK0099`, ESP32-S3
+  revision 0.2, 8 MB flash, and UART `/dev/cu.wchusbserial58FA0422681`.
+- Immediately before mutation, the read-only probe reconfirmed the target and
+  all four binary hashes matched the values above.
+- The operator explicitly requested the cleanest installation and authorized
+  complete reset of the purpose-bought board.
+- `esptool erase-flash`: PASS; the entire flash was erased successfully in
+  3.9 seconds.
+- The recorded four-offset command: PASS; bootloader, partition table, OTA
+  data, and application were written, read-back hashes verified, and the board
+  hard-reset.
+- The command used accepted esptool compatibility spellings that emitted only
+  deprecation warnings; no write or verification failure occurred.
+- Redacted bounded serial outcome: display-less firmware initialized the
+  MGMT+DATA CSI collector, edge tier 2, OTA service, adaptive controller, and
+  CSI streaming path; live CSI callbacks were observed.
+- Wi-Fi association and UDP sends failed as expected after the clean erase
+  because production NVS settings are intentionally deferred until Step 5.
+- Optional WASM Tier 3 remained disabled as recorded at build time; CSI-only
+  Home Alarm operation was active.
+- No raw serial log, MAC address, credential, private CSI, or other unique
+  identifier was retained.
+- Step 3 verdict: PASS for clean build/hash/full-flash/boot. This is not VPS or
+  end-to-end acceptance.
 
 ## Step 4 evidence — VPS deployment and network closure
 

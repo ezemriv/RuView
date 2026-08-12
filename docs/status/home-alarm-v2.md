@@ -16,9 +16,11 @@ for their own scope, but mutable status and next-step ownership live here.
 - Software implementation is complete.
 - Levels 1–3 are complete and independently reviewed.
 - The feature branch is integrated locally and verified at merge commit
-  `8f3563f6`; it has not been pushed or deployed.
-- Level 4 physical ESP32/VPS acceptance is not started and is the only basis
-  for calling the real home alarm operational.
+  `8f3563f6`; it has not been pushed or deployed to the VPS.
+- Level 4 is in progress: the physical ESP32-S3 has been clean-erased,
+  full-flashed, and boot-verified. VPS deployment, NVS network provisioning,
+  and live end-to-end acceptance remain, so the real home alarm is not yet
+  operational.
 - No real token, chat ID, Wi-Fi credential, VPS secret, or private CSI was
   read or committed.
 
@@ -152,7 +154,7 @@ no credential value is committed.
 
 ### 3. Build, hash, and flash the ESP32-S3
 
-- [ ] Follow the pinned ESP-IDF 5.4 display-less build in the runbook, record
+- [x] Follow the pinned ESP-IDF 5.4 display-less build in the runbook, record
   the four firmware hashes, derive and record the exact build-produced flash
   offsets/command using the authoritative
   [`firmware/esp32-csi-node/README.md`](../../firmware/esp32-csi-node/README.md#2-flash),
@@ -160,11 +162,13 @@ no credential value is committed.
   initial full flash, and capture a redacted serial boot log. NVS network
   provisioning is deferred until the VPS exists in Step 5.
 
-**Blocked (2026-08-12):** the pinned display-less build and four hashes are
-recorded, but no flash has occurred. Awaiting final confirmation of Freenove
-`FNK0099`, ESP32-S3 revision 0.2, 8 MB flash, UART
-`/dev/cu.wchusbserial58FA0422681`, and the exact four-offset command in the
-[`Level 4 acceptance record`](../../deploy/home-alarm/verification/level4-acceptance.md#pinned-build--2026-08-12t172800z).
+**Outcome (2026-08-12):** after final target confirmation, the entire 8 MB
+flash was erased and the four hashed images were written at `0x0`, `0x8000`,
+`0xf000`, and `0x20000`; esptool verified every region. A bounded redacted
+serial observation confirmed the display-less MGMT+DATA CSI path, edge tier 2,
+and live CSI callbacks. Wi-Fi/UDP delivery remains intentionally unavailable
+until Step 5 provisioning. See
+[`Clean flash and boot`](../../deploy/home-alarm/verification/level4-acceptance.md#clean-flash-and-boot--2026-08-12t173147z).
 
 **Depends on:** Step 2.
 **Complete when:** hashes, command outcomes, confirmed target, and redacted
