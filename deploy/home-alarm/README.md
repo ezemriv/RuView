@@ -4,6 +4,10 @@ This Compose deployment combines the pinned RuView ESP32 sensing service with a 
 stateful Telegram alarm. Treat this as an operator runbook, not proof of real-hardware success:
 record serial output and authenticated end-to-end evidence for every physical installation.
 
+Current project status, completed software work, and the sequential integration/Level 4
+checklist are maintained in [`docs/status/home-alarm-v2.md`](../../docs/status/home-alarm-v2.md).
+Agents must complete and mark only the first unchecked step there.
+
 ## Prepare secrets and deployment
 
 On the VPS, create the production environment file from the reviewed template and protect it:
@@ -35,6 +39,10 @@ not API readiness. Verify `/health` and an authenticated
 
 From the repository root, use the pinned ESP-IDF image and the exact display-less defaults:
 
+> This command removes `firmware/esp32-csi-node/build` and its generated
+> `sdkconfig`. Run it only in the approved integration checkout after preserving
+> any intentional local firmware configuration.
+
 ```bash
 MSYS_NO_PATHCONV=1 docker run --rm \
   -v "$(pwd)/firmware/esp32-csi-node:/project" -w /project \
@@ -43,12 +51,17 @@ MSYS_NO_PATHCONV=1 docker run --rm \
 sha256sum firmware/esp32-csi-node/build/bootloader/bootloader.bin \
   firmware/esp32-csi-node/build/partition_table/partition-table.bin \
   firmware/esp32-csi-node/build/ota_data_initial.bin \
-  firmware/esp32-csi-node/build/*.bin
+  firmware/esp32-csi-node/build/esp32-csi-node.bin
 ```
 
 Confirm the exact UART device, board, and intended full-flash target with the operator before
-any initial full flash. Record the four SHA-256 values (bootloader, partition table, OTA data,
-and application binary) with the serial boot log. Do not claim success from a build alone.
+any initial full flash. Follow the authoritative
+[`firmware/esp32-csi-node/README.md` flash procedure](../../firmware/esp32-csi-node/README.md#2-flash),
+derive the exact command and offsets from the pinned build output, record them in
+[`verification/level4-acceptance.md`](verification/level4-acceptance.md), and re-confirm them
+with the operator before execution.
+Record the four SHA-256 values (bootloader, partition table, OTA data, and application binary)
+with the serial boot log. Do not claim success from a build alone.
 
 ## Provision later NVS changes
 
@@ -95,3 +108,5 @@ With real hardware attached, retain the serial boot/runtime log and check all of
    Telegram checks after rollback.
 
 These software checks and Compose status do not replace serial and end-to-end hardware evidence.
+Append each authorized phase to [`verification/level4-acceptance.md`](verification/level4-acceptance.md)
+and update the matching checkbox in the canonical status document in the same commit.

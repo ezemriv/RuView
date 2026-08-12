@@ -1,5 +1,13 @@
 # Home alarm contributor notes
 
+## Current work routing
+
+- Read `docs/status/home-alarm-v2.md` before substantive work in this package.
+- Execute only its first unchecked next step. Do not start or partially execute later steps.
+- Mark a step complete only in the same commit that records its required evidence and updates
+  the current verdict. If blocked, record the blocker under that step and stop.
+- Tasks 1–10 in the Superpowers implementation plan are complete historical work, not a queue.
+
 ## Package map
 
 - `src/ruview_alarm/`: Telegram alarm service, authenticated sensing client, durable state,

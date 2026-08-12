@@ -1,5 +1,9 @@
 # Home Alarm Software Verification
 
+> This is dated Levels 1–3 evidence, not the living task tracker. Current state
+> and sequential next steps are maintained in
+> [`docs/status/home-alarm-v2.md`](../../../docs/status/home-alarm-v2.md).
+
 **Date (UTC):** 2026-08-12T13:46:26Z
 **Fix-wave base commit:** `53c7c9eaeadfbe7120ed15cd62b4c87600c4f826`
 **Pinned sensing image:** `docker.io/ruvnet/wifi-densepose@sha256:fac235102bebc8a9bfc5445645bc6908d02cf0244154e59b7bab297a574b5fae`
@@ -39,6 +43,17 @@ UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run ruff check src tests
 ```
 
 Result: PASS — `All checks passed!` (exit 0).
+
+## Level 2: service integration evidence
+
+```console
+UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run pytest tests/test_service_integration.py -q
+```
+
+Result: PASS — 5 passed in 0.43s (exit 0). These tests exercise the
+authenticated RuView and Telegram HTTP adapters with the supervised service,
+including alarm transitions, update durability, authorization, failure
+isolation, restoration, and client shutdown.
 
 ## Level 3: immutable container smoke gate
 
@@ -108,3 +123,16 @@ Levels 1–3 are complete: locked dependencies, the full unit/service-integratio
 suite, Ruff, Compose validation, the immutable RuView boundary checks, and the
 synthetic alarm-container sensing lifecycle passed. Level 4 remains
 operator-assisted and unperformed; this record makes no hardware or VPS claim.
+
+## Final branch-tip confirmation
+
+After the final review fixes and project-memory update, the same software gate
+was rerun at `cc66b478`:
+
+- frozen sync passed with the tracked lock unchanged;
+- 121 non-container tests passed and 1 container test was deselected;
+- Ruff and `docker compose ... config --quiet` passed; and
+- the container smoke passed with 1 selected test and 4 support tests deselected.
+
+This confirms Levels 1–3 at the implementation tip. It does not change the
+unperformed Level 4 verdict.

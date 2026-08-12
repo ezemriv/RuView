@@ -229,18 +229,19 @@ This repository uses a tracked, non-sensitive Codex memory layer.
 
 | Topic | Note |
 |---|---|
-| Home Alarm v2 | Software implementation and Levels 1–3 verification are complete on its feature branch; integration is pending. |
-| Hardware/VPS acceptance | Level 4 remains operator-assisted and requires confirmed hardware, serial, VPS, firewall, Telegram, restart, and rollback evidence. |
+| Home Alarm v2 | Use `docs/status/home-alarm-v2.md` as the only living status and sequential next-step source. |
+| Hardware/VPS acceptance | Its authority, evidence requirements, and completion state are routed through `docs/status/home-alarm-v2.md`. |
 | Evidence labels | Keep immutable RuView boundary checks `MEASURED`, fake ESP32-shaped alarm lifecycle checks `SYNTHETIC`, and never promote either to real-hardware evidence. |
 
 ### Active Workstreams
 
 | Name | Status | Notes |
 |---|---|---|
-| Home Alarm v2 | Ready for integration decision | Production package is under `deploy/home-alarm/`; read its scoped `AGENTS.md` and runbook before work. |
+| Home Alarm v2 | Follow canonical status | Execute and mark only the first unchecked step in `docs/status/home-alarm-v2.md`; package rules remain in `deploy/home-alarm/AGENTS.md`. |
 
 ### Deep Memory
 
 - `memory/INDEX.md`
 - `memory/architecture/home-alarm-v2.md`
+- `docs/status/home-alarm-v2.md`
 <!-- END CODEX PROJECT MEMORY -->

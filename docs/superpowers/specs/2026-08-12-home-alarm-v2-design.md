@@ -1,6 +1,15 @@
 # RuView Home Alarm v2 Design
 
-**Status:** Approved for implementation on 2026-08-12
+**Status:** Implemented and Levels 1–3 verified on 2026-08-12
+
+**Implementation outcome:** The implementation completed on
+`codex/upstream-home-alarm-v2-implementation` through `cc66b478`. The dated
+software evidence is in
+`deploy/home-alarm/verification/software-verification.md`. This design is the
+historical architectural contract; mutable status and the strictly sequential
+integration/Level 4 checklist live only in
+`docs/status/home-alarm-v2.md`. Do not re-execute its completed implementation
+work.
 
 ## Goal
 
@@ -161,7 +170,7 @@ layers, or logs. Telegram and RuView use different tokens.
 - Both services use `restart: unless-stopped` and independent health checks.
 - The sensing health check proves its process is alive; the alarm's active
   polling determines whether real ESP32 data is available.
-- Alarm health proves its main event loop and both supervised tasks are alive.
+- Alarm health proves its main event loop and all supervised worker loops are alive.
 - A RuView outage does not disarm the alarm or rewrite stored state.
 - A Telegram outage does not stop sensing supervision.
 - Sensor-offline and sensor-recovered messages are transition-based to prevent
@@ -230,6 +239,10 @@ With physical board access and VPS credentials:
 
 This level is the only basis for claiming that the deployed hardware alarm is
 operational.
+
+Record its redacted evidence in
+`deploy/home-alarm/verification/level4-acceptance.md`; use
+`docs/status/home-alarm-v2.md` for sequencing and completion state.
 
 ## Explicitly excluded
 

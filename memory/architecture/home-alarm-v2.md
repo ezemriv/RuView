@@ -1,5 +1,11 @@
 # Home Alarm v2
 
+## Status Routing
+
+This file stores durable architecture, not progress. The only living status and
+next-step checklist is `docs/status/home-alarm-v2.md`; execute and mark its
+steps one at a time.
+
 ## Purpose
 
 `deploy/home-alarm/` is a restart-safe Python sidecar and pinned Docker Compose deployment around upstream RuView. It polls authenticated sensing, accepts Telegram control from one configured chat, persists alarm state atomically, and supervises sensing, Telegram polling, notification delivery, and watchdog heartbeat loops.
@@ -23,11 +29,13 @@
 
 ## Where to Start
 
+- Current state and next steps: `docs/status/home-alarm-v2.md`
 - Scoped rules: `deploy/home-alarm/AGENTS.md`
 - Operator runbook: `deploy/home-alarm/README.md`
 - Approved design: `docs/superpowers/specs/2026-08-12-home-alarm-v2-design.md`
 - Executable plan: `docs/superpowers/plans/2026-08-12-home-alarm-v2.md`
 - Current software evidence: `deploy/home-alarm/verification/software-verification.md`
+- Level 4 evidence record: `deploy/home-alarm/verification/level4-acceptance.md`
 
 ## Validation
 

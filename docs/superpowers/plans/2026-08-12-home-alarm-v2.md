@@ -1,6 +1,13 @@
 # RuView Home Alarm v2 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **Historical execution record:** Tasks 1–10 were executed with
+> `superpowers:subagent-driven-development`, task-scoped reviews, and a final
+> whole-branch review. Checked boxes record completion; they are not
+> instructions to repeat the work.
+
+**Status:** Completed and independently reviewed on 2026-08-12. Tasks 1–10
+are immutable historical execution evidence and must not be re-run as pending
+work. All mutable status lives in `docs/status/home-alarm-v2.md`.
 
 **Goal:** Build a pinned, restart-safe Telegram alarm around upstream RuView, plus a secure local ESP32 provisioning helper and a reproducible VPS Compose deployment.
 
@@ -59,7 +66,7 @@
 - `Settings` fields: `telegram_bot_token: SecretStr`, `telegram_chat_id: int`, `ruview_api_token: SecretStr`, `ruview_base_url: AnyHttpUrl`, `telegram_base_url: AnyHttpUrl`, `state_path: Path`, `health_path: Path`, `poll_seconds: float`, `all_clear_seconds: float`, `offline_seconds: float`, `telegram_poll_seconds: int`.
 - `SensorSample` fields: `healthy_esp32: bool`, `presence: bool | None`, `tick: int | None`.
 
-- [ ] **Step 1: Write the package metadata and failing settings/model tests**
+- [x] **Step 1: Write the package metadata and failing settings/model tests**
 
 Create a `hatchling` package rooted at `src`, require Python `>=3.12,<3.13`, and declare runtime dependencies `httpx>=0.28.1,<0.29` and `pydantic-settings>=2.10,<3`. Add an optional `provision` extra with `esptool>=5,<6` and `esp-idf-nvs-partition-gen>=0.2,<0.4`. Add development dependencies `pytest>=8.4,<9`, `pytest-asyncio>=1.1,<2`, and `ruff>=0.12,<0.13`. Configure pytest with `asyncio_mode = "auto"` and Ruff for Python 3.12 with a 100-character line length.
 
@@ -77,13 +84,13 @@ def test_persisted_state_has_exact_versioned_shape() -> None:
 
 The documented defaults are `http://sensing-server:3000`, `https://api.telegram.org`, `/data/state.json`, `/tmp/ruview-alarm-health.json`, `5.0`, `60.0`, `30.0`, and `20` respectively. Secret-leak assertions must test a sentinel such as `DO_NOT_RENDER_ME` without printing it.
 
-- [ ] **Step 2: Run the focused tests and verify the import failure**
+- [x] **Step 2: Run the focused tests and verify the import failure**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_config.py tests/test_models.py -v`
 
 Expected: FAIL because `ruview_alarm.config` and `ruview_alarm.models` do not exist.
 
-- [ ] **Step 3: Implement the exact contracts and settings validation**
+- [x] **Step 3: Implement the exact contracts and settings validation**
 
 Define the contracts with these signatures and invariants:
 
@@ -120,7 +127,7 @@ Use `StrEnum` values `arm`, `disarm`, `status` and event kinds `status`, `intrus
 
 Implement `Settings(BaseSettings)` with `SettingsConfigDict(case_sensitive=False, env_file=None, extra="ignore")`, the exact field names above, positive timing validation, and a model-level check that the unwrapped Telegram and RuView tokens differ. Override `__repr__`/`__str__` only if a test proves Pydantic's default secret redaction is insufficient.
 
-- [ ] **Step 4: Run unit checks**
+- [x] **Step 4: Run unit checks**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_config.py tests/test_models.py -v`
 
@@ -130,7 +137,7 @@ Run: `cd deploy/home-alarm && uv run ruff check src tests/test_config.py tests/t
 
 Expected: PASS with no diagnostics.
 
-- [ ] **Step 5: Commit the package foundation**
+- [x] **Step 5: Commit the package foundation**
 
 ```bash
 git add deploy/home-alarm/pyproject.toml deploy/home-alarm/src deploy/home-alarm/tests/test_config.py deploy/home-alarm/tests/test_models.py
@@ -147,7 +154,7 @@ git commit -m "feat(alarm): add validated configuration contracts"
 - Consumes: `PersistedState` from Task 1.
 - Produces: `load_state(path: Path) -> PersistedState` and `save_state(path: Path, state: PersistedState) -> None`.
 
-- [ ] **Step 1: Write failing persistence tests**
+- [x] **Step 1: Write failing persistence tests**
 
 Write named tests for missing-file defaults, round-trip restoration, atomic replacement/mode, file and directory `fsync`, corrupt JSON, unsupported versions, and extra fields. The round-trip contract is:
 
@@ -161,13 +168,13 @@ def test_round_trip_restores_armed_and_offset(tmp_path: Path) -> None:
 
 Patch `os.replace` in the atomicity test and assert the source is in the destination directory and ends with `.tmp`; assert the destination was absent before replacement. Patch `os.fsync` in the durability test and assert it receives both a regular-file descriptor and the opened directory descriptor.
 
-- [ ] **Step 2: Verify red tests**
+- [x] **Step 2: Verify red tests**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_state.py -v`
 
 Expected: FAIL on missing `ruview_alarm.state`.
 
-- [ ] **Step 3: Implement missing-file defaults and strict load**
+- [x] **Step 3: Implement missing-file defaults and strict load**
 
 ```python
 def load_state(path: Path) -> PersistedState:
@@ -178,11 +185,11 @@ def load_state(path: Path) -> PersistedState:
 
 Do not catch Pydantic or JSON validation exceptions: startup must stop on ambiguity.
 
-- [ ] **Step 4: Implement atomic, durable, private save**
+- [x] **Step 4: Implement atomic, durable, private save**
 
 Create the parent with mode `0700`, create the temporary file with `tempfile.mkstemp(dir=path.parent, prefix=f".{path.name}.", suffix=".tmp")`, immediately call `os.fchmod(fd, 0o600)`, write canonical UTF-8 JSON plus a newline, flush and `fsync`, replace it, then open the parent directory with `os.O_DIRECTORY` and `fsync` it. Unlink only the known temporary path in the exception path.
 
-- [ ] **Step 5: Run persistence and style checks**
+- [x] **Step 5: Run persistence and style checks**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_state.py -v`
 
@@ -192,7 +199,7 @@ Run: `cd deploy/home-alarm && uv run ruff check src/ruview_alarm/state.py tests/
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit durable state**
+- [x] **Step 6: Commit durable state**
 
 ```bash
 git add deploy/home-alarm/src/ruview_alarm/state.py deploy/home-alarm/tests/test_state.py
@@ -210,7 +217,7 @@ git commit -m "feat(alarm): persist restart-safe alarm state"
 - Produces: `AlarmEngine.restore(state)`, `AlarmEngine.command(action)`, `AlarmEngine.observe(sample, now)`, `AlarmEngine.snapshot(offset)`.
 - Use monotonic seconds (`float`) for transition durations; only human-facing message text mentions state, not internal timestamps.
 
-- [ ] **Step 1: Write failing state-machine tests with a fake clock**
+- [x] **Step 1: Write failing state-machine tests with a fake clock**
 
 Use direct numeric times so boundary behavior is unambiguous. Cover new/disarmed state, armed restoration, idempotent commands, absent-to-present intrusion, disarmed suppression, presence on first sample after an armed restart, all-clear timing/reset, offline/recovery deduplication, unhealthy presence isolation, and disarm during an incident. A boundary assertion is:
 
@@ -227,13 +234,13 @@ def test_all_clear_requires_60_continuous_seconds_absent() -> None:
 
 At boundaries, assert no offline event at `29.999`, one at `30.0`, no all-clear at `59.999`, and one at `60.0`.
 
-- [ ] **Step 2: Verify the engine tests fail**
+- [x] **Step 2: Verify the engine tests fail**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_alarm.py -v`
 
 Expected: FAIL on missing `ruview_alarm.alarm`.
 
-- [ ] **Step 3: Implement runtime state and commands**
+- [x] **Step 3: Implement runtime state and commands**
 
 Use one class with these methods:
 
@@ -254,11 +261,11 @@ class AlarmEngine:
 
 Keep only runtime fields required by the spec: armed, previous healthy presence, active incident, absence start, unhealthy start, and offline-notified flag. `arm` must initialize transition tracking so the next healthy present sample can raise an intrusion; `disarm` must clear any incident/countdown. Status text must explicitly say `armed` or `disarmed`.
 
-- [ ] **Step 4: Implement exact transition timing**
+- [x] **Step 4: Implement exact transition timing**
 
 Healthy samples clear the unhealthy timer and emit one recovery only if offline was previously notified. Unhealthy samples start the timer and never change presence. While armed, a false-to-true transition emits one intrusion and opens an incident; an open incident closes only after 60 uninterrupted seconds of healthy absence. Repeated samples in the same state emit nothing.
 
-- [ ] **Step 5: Run engine regression checks**
+- [x] **Step 5: Run engine regression checks**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_alarm.py -v`
 
@@ -268,7 +275,7 @@ Run: `cd deploy/home-alarm && uv run ruff check src/ruview_alarm/alarm.py tests/
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the engine**
+- [x] **Step 6: Commit the engine**
 
 ```bash
 git add deploy/home-alarm/src/ruview_alarm/alarm.py deploy/home-alarm/tests/test_alarm.py
@@ -286,7 +293,7 @@ git commit -m "feat(alarm): add deterministic alarm transitions"
 - Produces: `RuViewClient(client: httpx.AsyncClient, base_url: str, api_token: SecretStr)` and `async sample() -> SensorSample`.
 - Verified upstream schemas: `/health` returns `status`, `source`, `tick`, and `clients`; `/api/v1/sensing/latest` returns `source`, `tick`, and `classification.presence` or `{"status":"no data yet"}`.
 
-- [ ] **Step 1: Write HTTPX MockTransport tests**
+- [x] **Step 1: Write HTTPX MockTransport tests**
 
 Cover bearer headers on both endpoints, a healthy ESP32 sample, non-ESP32 short-circuiting, `no data yet`, mismatched latest source, invalid schema, and HTTP failure using captured `httpx.Request` objects. The happy-path assertion is:
 
@@ -301,17 +308,17 @@ assert [request.headers["Authorization"] for request in requests] == [
 
 For a healthy response, use health `{"status":"ok","source":"esp32","tick":7,"clients":0}` and latest `{"source":"esp32","tick":8,"classification":{"presence":true}}` to prove that an advancing tick between requests is valid. Assert the header is exactly `Authorization: Bearer test-ruview-token` in the captured request, but never interpolate it into assertions on exception text.
 
-- [ ] **Step 2: Verify adapter tests fail**
+- [x] **Step 2: Verify adapter tests fail**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_ruview.py -v`
 
 Expected: FAIL on missing `ruview_alarm.ruview`.
 
-- [ ] **Step 3: Implement strict schema parsing and source gating**
+- [x] **Step 3: Implement strict schema parsing and source gating**
 
 Use private Pydantic response models with `extra="ignore"`. Request `/health` first; only request `/api/v1/sensing/latest` when status is `ok` and source is `esp32`. Return an unhealthy sample for an honest non-ESP32 source or `no data yet`. Wrap HTTP/status/schema failures as `RuViewError(operation: str, status_code: int | None)` whose string contains no URL or token; the service owns retry timing. Require latest source `esp32`, a nondecreasing tick value, and a real boolean presence value, but do not require equality with the earlier health tick because sensing can advance between requests.
 
-- [ ] **Step 4: Run adapter tests and lint**
+- [x] **Step 4: Run adapter tests and lint**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_ruview.py -v`
 
@@ -321,7 +328,7 @@ Run: `cd deploy/home-alarm && uv run ruff check src/ruview_alarm/ruview.py tests
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the RuView adapter**
+- [x] **Step 5: Commit the RuView adapter**
 
 ```bash
 git add deploy/home-alarm/src/ruview_alarm/ruview.py deploy/home-alarm/tests/test_ruview.py
@@ -339,7 +346,7 @@ git commit -m "feat(alarm): add authenticated RuView polling"
 - Produces: `TelegramClient(client, base_url, bot_token, allowed_chat_id)`, `async get_updates(offset, timeout)`, `async acknowledge_callback(callback_id)`, and `async send_message(text)`.
 - `get_updates` returns every update ID, including unauthorized or unrecognized updates, so the service can persist `update_id + 1` and avoid replay loops.
 
-- [ ] **Step 1: Write fake Bot API tests**
+- [x] **Step 1: Write fake Bot API tests**
 
 Use `httpx.MockTransport` and cover authorized text commands, authorized callback actions, unauthorized updates, unknown commands, offset/long-poll parameters, callback acknowledgement, configured-chat delivery, Bot API errors, and transport-error redaction. A representative authorization assertion is:
 
@@ -352,19 +359,19 @@ assert captured_request.url.params["timeout"] == "20"
 
 Recognize `/arm`, `/disarm`, and `/status` after stripping the optional `@botname`; inline callback data is exactly `arm`, `disarm`, or `status`. The public exception is `TelegramError(operation: str, status_code: int | None)` and its string must not contain the request URL or token.
 
-- [ ] **Step 2: Verify Telegram tests fail**
+- [x] **Step 2: Verify Telegram tests fail**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_telegram.py -v`
 
 Expected: FAIL on missing `ruview_alarm.telegram`.
 
-- [ ] **Step 3: Implement Bot API calls with redacted errors**
+- [x] **Step 3: Implement Bot API calls with redacted errors**
 
 Build the tokenized route only inside a private `_call(method, payload)` method. Never log `request.url`, an HTTPX exception string, payload dictionaries, or settings. Validate Bot API envelopes such as `{"ok": true, "result": []}` and raise `TelegramError` with only operation/status metadata otherwise.
 
 Each `TelegramUpdate` must include its ID. Populate `action` only for the configured chat ID; retain `callback_id` for authorized callbacks so the service can acknowledge them. `send_message` must include an inline keyboard containing Arm, Disarm, and Status callback buttons.
 
-- [ ] **Step 4: Run Telegram tests and lint**
+- [x] **Step 4: Run Telegram tests and lint**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_telegram.py -v`
 
@@ -374,7 +381,7 @@ Run: `cd deploy/home-alarm && uv run ruff check src/ruview_alarm/telegram.py tes
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the Telegram adapter**
+- [x] **Step 5: Commit the Telegram adapter**
 
 ```bash
 git add deploy/home-alarm/src/ruview_alarm/telegram.py deploy/home-alarm/tests/test_telegram.py
@@ -395,7 +402,7 @@ git commit -m "feat(alarm): add authorized Telegram controls"
 - Produces: `retry_delays() -> Iterator[float]`, `AlarmService`, `async run_alarm(settings: Settings) -> None`, `write_heartbeat(path, snapshot)`, and `check_health(path, now) -> int`.
 - The service has four supervised loops: sensing, Telegram long-poll, notification delivery, and watchdog heartbeat.
 
-- [ ] **Step 1: Write failing retry, persistence, supervision, and health tests**
+- [x] **Step 1: Write failing retry, persistence, supervision, and health tests**
 
 Use fakes with `asyncio.Event` synchronization, never real sleeps or network. Cover restored startup status, state-before-notification ordering, offset persistence for every update, callback-after-durability ordering, delivery retry isolation, RuView outage behavior, Telegram outage behavior, unexpected task exit, graceful cancellation/client closure, and fresh/stale heartbeat validation. The retry contract is asserted exactly:
 
@@ -406,27 +413,27 @@ def test_retry_delays_are_1_2_4_8_16_then_30_forever() -> None:
 
 Assert retry delays with `list(itertools.islice(retry_delays(), 8)) == [1, 2, 4, 8, 16, 30, 30, 30]`. Health data must name `main`, `sensing`, `telegram`, and `notifications`; reject sensing/notification ages over 45 seconds or Telegram age over 60 seconds.
 
-- [ ] **Step 2: Verify service tests fail**
+- [x] **Step 2: Verify service tests fail**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_service.py tests/test_healthcheck.py -v`
 
 Expected: FAIL on missing service and healthcheck modules.
 
-- [ ] **Step 3: Implement sequencing and isolated retry loops**
+- [x] **Step 3: Implement sequencing and isolated retry loops**
 
 Construct one shared `httpx.AsyncClient` per remote service, each with explicit connect/read/write/pool timeouts. Load state before tasks start, restore the engine, queue `Alarm restored: armed` or `Alarm restored: disarmed`, then use `asyncio.TaskGroup` for the four loops.
 
 For every Telegram update: compute `next_offset = update_id + 1`; if authorized, apply the command; synchronously save the new state/offset; acknowledge an authorized callback; then enqueue resulting notifications. Unauthorized and unknown updates still persist the offset. Notification failures remain on the delivery worker and never roll back state.
 
-For sensing: call `sample`, pass it to `engine.observe(sample, loop.time())`, and enqueue events. Poll every 5 seconds on success. On transient adapter failure, pass `SensorSample(healthy_esp32=False)` to the engine, continue through the exact retry sequence, and cap each sleep so the engine is observed often enough to cross its 30-second offline threshold.
+For sensing: call `sample`, pass it to `engine.observe(sample, loop.time())`, and enqueue events. Poll every 5 seconds on success. On transient adapter failure, pass `SensorSample(healthy_esp32=False)` to the engine, preserve the exact retry sequence, and wait through each full delay in bounded observation slices so offline timing and liveness continue to advance without increasing HTTP attempt frequency.
 
-- [ ] **Step 4: Implement task liveness and process entry**
+- [x] **Step 4: Implement task liveness and process entry**
 
 Write heartbeats atomically to `/tmp/ruview-alarm-health.json` as UTC epoch seconds for `main`, `sensing`, `telegram`, and `notifications`. The watchdog writes every 10 seconds and raises if any loop heartbeat exceeds its threshold. `check_health` returns exit code 0 only when the file is strict JSON and all four entries are fresh.
 
 `__main__.py` configures UTC logging, loads `Settings`, runs `asyncio.run(run_alarm(settings))`, and exits non-zero on invalid settings/state or unexpected task failure without logging secret-bearing exception values.
 
-- [ ] **Step 5: Run service, health, and full unit checks**
+- [x] **Step 5: Run service, health, and full unit checks**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_service.py tests/test_healthcheck.py -v`
 
@@ -440,7 +447,7 @@ Run: `cd deploy/home-alarm && uv run ruff check src tests`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the supervised service**
+- [x] **Step 6: Commit the supervised service**
 
 ```bash
 git add deploy/home-alarm/src/ruview_alarm/service.py deploy/home-alarm/src/ruview_alarm/healthcheck.py deploy/home-alarm/src/ruview_alarm/__main__.py deploy/home-alarm/tests/test_service.py deploy/home-alarm/tests/test_healthcheck.py
@@ -462,7 +469,7 @@ git commit -m "feat(alarm): supervise sensing and Telegram loops"
 - Consumes: the package and entry points from Tasks 1–6.
 - Produces: production services `sensing-server` and `telegram-alarm`, private network `alarm-net`, and named volume `alarm-state`.
 
-- [ ] **Step 1: Write static Compose and secret-safety tests**
+- [x] **Step 1: Write static Compose and secret-safety tests**
 
 Parse `docker compose --env-file tests/fixtures/compose.env config --format json` and assert:
 
@@ -480,13 +487,13 @@ assert "3001" not in rendered
 
 Also assert both services use `unless-stopped`, `cap_drop: [ALL]`, `no-new-privileges:true`, health checks, and only `alarm-net`; assert the alarm service is read-only, non-root, has `/tmp` as tmpfs, and mounts `alarm-state` at `/data`. Recursively scan committed deployment files and the rendered config to prove sentinel fixture secrets occur only in the generated test process input, not in source or Dockerfile layers.
 
-- [ ] **Step 2: Verify packaging tests fail**
+- [x] **Step 2: Verify packaging tests fail**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_compose.py -v`
 
 Expected: FAIL because production packaging does not exist.
 
-- [ ] **Step 3: Build the locked, non-root alarm image**
+- [x] **Step 3: Build the locked, non-root alarm image**
 
 Use a multi-stage `python:3.12-slim` Dockerfile. Install a pinned `uv` binary copied from `ghcr.io/astral-sh/uv:0.10.9`, run `uv sync --frozen --no-dev`, copy only the virtual environment and package into a final image, create UID/GID 10001, and run `/app/.venv/bin/python -m ruview_alarm`. The health check command is `/app/.venv/bin/python -m ruview_alarm.healthcheck`.
 
@@ -494,7 +501,7 @@ Run: `cd deploy/home-alarm && uv lock`
 
 Expected: `deploy/home-alarm/uv.lock` pins all direct and transitive dependencies without touching the repository-root `uv.lock`.
 
-- [ ] **Step 4: Implement the exact production Compose boundary**
+- [x] **Step 4: Implement the exact production Compose boundary**
 
 Configure `sensing-server` with the immutable digest, `CSI_SOURCE=esp32`, routable UDP bind and required allowlist, bearer token, loopback TCP publication, UDP publication, and a process health check. Configure `telegram-alarm` from the local Dockerfile with the required settings and `depends_on: sensing-server: condition: service_healthy`. Use mapping-form environment substitutions that fail when `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `RUVIEW_API_TOKEN`, or `RUVIEW_UDP_ALLOW` are unset.
 
@@ -507,7 +514,7 @@ RUVIEW_API_TOKEN=replace-with-a-distinct-ruview-api-token
 RUVIEW_UDP_ALLOW=198.51.100.42/32
 ```
 
-- [ ] **Step 5: Validate config, lock, image, and tests**
+- [x] **Step 5: Validate config, lock, image, and tests**
 
 Run: `cd deploy/home-alarm && uv sync --frozen --all-extras --dev`
 
@@ -525,7 +532,7 @@ Run: `cd deploy/home-alarm && docker build --pull --no-cache -t ruvnet/home-alar
 
 Expected: image builds successfully and runs as UID 10001.
 
-- [ ] **Step 6: Commit reproducible deployment packaging**
+- [x] **Step 6: Commit reproducible deployment packaging**
 
 ```bash
 git add deploy/home-alarm/pyproject.toml deploy/home-alarm/uv.lock deploy/home-alarm/Dockerfile deploy/home-alarm/compose.yaml deploy/home-alarm/.env.example deploy/home-alarm/.dockerignore deploy/home-alarm/tests/test_compose.py deploy/home-alarm/tests/fixtures/compose.env
@@ -546,7 +553,7 @@ git commit -m "feat(alarm): add pinned VPS deployment"
 - Consumes: production service, image, and Compose interfaces from Tasks 1–7.
 - Produces: hermetic fake RuView/Telegram service fixtures and a `container` pytest marker.
 
-- [ ] **Step 1: Write the in-process service integration scenarios**
+- [x] **Step 1: Write the in-process service integration scenarios**
 
 Start local `asyncio` HTTP servers on ephemeral loopback ports and exercise the real HTTP adapters plus service. Cover authorized arm → presence → all-clear with persisted offset, callback acknowledgement plus unauthorized chat suppression, delivery failure plus sensor loss/recovery, armed recreation plus immediate presence, and graceful client shutdown. The first scenario must end with assertions equivalent to:
 
@@ -564,13 +571,13 @@ assert fake_telegram.message_texts == [
 
 The fake RuView endpoint must reject a missing/wrong bearer token; the fake Telegram endpoint must record updates, callback acknowledgements, and outbound messages. Inject short polling/offline/all-clear values through `Settings` constructor overrides so the suite completes quickly without weakening production defaults.
 
-- [ ] **Step 2: Verify integration scenarios fail before fixture support**
+- [x] **Step 2: Verify integration scenarios fail before fixture support**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_service_integration.py -v`
 
 Expected: FAIL because the fake servers and orchestration fixture are incomplete.
 
-- [ ] **Step 3: Implement hermetic fakes and make integration tests pass**
+- [x] **Step 3: Implement hermetic fakes and make integration tests pass**
 
 Use only Python standard-library asyncio networking or the already locked HTTP stack; bind to `127.0.0.1` with port 0; never contact external hosts. Each fake exposes explicit methods to queue Telegram updates and set RuView health/latest state. Teardown closes listeners and asserts no background task remains.
 
@@ -578,7 +585,7 @@ Run: `cd deploy/home-alarm && uv run pytest tests/test_service_integration.py -v
 
 Expected: all tests PASS.
 
-- [ ] **Step 4: Add the production-like Compose smoke environment**
+- [x] **Step 4: Add the production-like Compose smoke environment**
 
 The smoke override changes `CSI_SOURCE` to `simulated`, removes production UDP publication, supplies sentinel credentials, points `TELEGRAM_BASE_URL` to a `telegram-fake` service, routes only the alarm to a clearly named `fake-sensing` service, and mounts a temporary test volume. The immutable RuView simulation remains running and is validated separately; it is never described as ESP32 data. `tests/fake_telegram_api.py` is a standard-library HTTP service with Bot API-compatible `getUpdates`, `sendMessage`, and `answerCallbackQuery` routes plus test-only `/enqueue` and `/messages` control routes. `tests/fake_sensing_api.py` requires the RuView bearer token for ESP32-shaped health/latest responses and exposes only credential-free request counts plus test-only presence control. Both fakes are reachable from the host only on ephemeral loopback ports. The test must:
 
@@ -593,7 +600,7 @@ The smoke override changes `CSI_SOURCE` to `simulated`, removes production UDP p
 
 Mark this test `@pytest.mark.container`; skip only when `docker info` proves the daemon unavailable, and report that skip as an unmet Level 3 gate rather than a pass.
 
-- [ ] **Step 5: Run all three software verification levels**
+- [x] **Step 5: Run all three software verification levels**
 
 Run: `cd deploy/home-alarm && uv run pytest -v -m 'not container'`
 
@@ -607,7 +614,7 @@ Run: `cd deploy/home-alarm && uv run ruff check src tests scripts`
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the verification harness**
+- [x] **Step 6: Commit the verification harness**
 
 ```bash
 git add deploy/home-alarm/pyproject.toml deploy/home-alarm/tests/fakes.py deploy/home-alarm/tests/fake_telegram_api.py deploy/home-alarm/tests/test_service_integration.py deploy/home-alarm/tests/test_container_smoke.py deploy/home-alarm/compose.smoke.yaml
@@ -627,7 +634,7 @@ git commit -m "test(alarm): verify service and container recovery"
 - Consumes: upstream `firmware/esp32-csi-node/provision.py` and its flags `--port`, `--ssid`, `--password`, `--target-ip`, `--target-port`, `--node-id`, `--chip`, and `--state-dir`.
 - Produces: interactive `main(argv: Sequence[str] | None = None) -> int`; no unattended or password-bearing CLI interface.
 
-- [ ] **Step 1: Write provisioning safety tests**
+- [x] **Step 1: Write provisioning safety tests**
 
 Mock `input`, `getpass.getpass`, `tempfile.TemporaryDirectory`, `runpy.run_path`, and `sys.argv`. Cover literal VPS IPv4/nonempty SSID/node ID validation, fixed UDP port 5005, exact serial-port confirmation, cancellation, password prompting, in-process ESP32-S3 invocation, NVS-only arguments, and output/error redaction. The successful invocation must assert:
 
@@ -647,31 +654,31 @@ assert upstream_argv == [
 
 The expected internal upstream argument list contains `--chip esp32s3`, `--target-port 5005`, and the private temporary `--state-dir`. It must not contain a full-flash operation; upstream provisioning writes only NVS offset `0x9000`.
 
-- [ ] **Step 2: Verify helper tests fail**
+- [x] **Step 2: Verify helper tests fail**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_provision_esp32.py -v`
 
 Expected: FAIL because the wrapper does not exist.
 
-- [ ] **Step 3: Implement the interactive in-process wrapper**
+- [x] **Step 3: Implement the interactive in-process wrapper**
 
 Accept only non-secret `--port`, `--ssid`, `--vps-ip`, and `--node-id`; validate node ID in the upstream range 0–255. Parse VPS target with `ipaddress.IPv4Address`; set UDP port internally to 5005; prompt with `getpass`; require the operator to retype the exact serial port; then run upstream's provisioner with `runpy.run_path(provisioner_path, run_name="__main__")` while temporarily replacing Python-level `sys.argv`. Restore `sys.argv` in `finally`, drop the local password reference after return, and use a private `TemporaryDirectory` so upstream's per-port JSON cannot persist.
 
-- [ ] **Step 4: Write the operator runbook and local agent guidance**
+- [x] **Step 4: Write the operator runbook and local agent guidance**
 
 Document exact commands and honest gates:
 
 - create a mode-`0600` production `.env` from `.env.example`;
 - build pinned display-less firmware with `espressif/idf:v5.4` and `-DSDKCONFIG_DEFAULTS='sdkconfig.defaults;sdkconfig.defaults.devkitc'`, then record SHA-256 hashes for the bootloader, partition table, OTA data, and app binaries;
 - full-flash only after explicit UART/board confirmation, then use the helper for later Wi-Fi/VPS NVS changes;
-- deploy with `docker compose pull`, `docker compose build --pull`, `docker compose config`, and `docker compose up -d`;
+- deploy with `docker compose pull`, `docker compose build --pull`, `docker compose config --quiet`, and `docker compose up -d`;
 - perform temporary UDP source discovery, then install the same home `/32` in `RUVIEW_UDP_ALLOW` and the VPS firewall;
 - validate `/health`, authenticated latest sensing, Telegram authorization, intrusion/all-clear, state restoration, and rollback;
 - never claim hardware success without serial and end-to-end evidence.
 
 The subsystem `AGENTS.md` records the package map, commands, pinning rule, secret boundaries, and distinction between software tests and hardware acceptance. The runbook uses `uv run --extra provision python scripts/provision_esp32.py` for NVS changes and the exact display-less Docker build command already documented in `sdkconfig.defaults.devkitc`. Add `deploy/home-alarm/.env` and `deploy/home-alarm/.env.*` to `.gitignore`, then explicitly unignore `.env.example` and `tests/fixtures/compose.env`.
 
-- [ ] **Step 5: Run helper, documentation, secret, and full regression checks**
+- [x] **Step 5: Run helper, documentation, secret, and full regression checks**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_provision_esp32.py -v`
 
@@ -685,7 +692,7 @@ Run: `git grep -nE '(TELEGRAM_BOT_TOKEN|RUVIEW_API_TOKEN|password)[[:space:]]*=[
 
 Expected: no credential assignments in tracked production/test sources.
 
-- [ ] **Step 6: Commit provisioning and runbook**
+- [x] **Step 6: Commit provisioning and runbook**
 
 ```bash
 git add .gitignore deploy/home-alarm/scripts/provision_esp32.py deploy/home-alarm/tests/test_provision_esp32.py deploy/home-alarm/README.md deploy/home-alarm/AGENTS.md
@@ -701,19 +708,19 @@ git commit -m "docs(alarm): add secure provisioning and VPS runbook"
 - Consumes: all implementation and verification artifacts.
 - Produces: a dated, reproducible Level 1–3 evidence record; it must not claim Level 4 completion.
 
-- [ ] **Step 1: Run the complete locked test and lint suite**
+- [x] **Step 1: Run the complete locked test and lint suite**
 
 Run: `cd deploy/home-alarm && uv sync --frozen --all-extras --dev && uv run pytest -v -m 'not container' && uv run ruff check src tests scripts`
 
 Expected: dependency lock unchanged, all tests PASS, Ruff PASS.
 
-- [ ] **Step 2: Run the immutable container gate**
+- [x] **Step 2: Run the immutable container gate**
 
 Run: `cd deploy/home-alarm && uv run pytest tests/test_container_smoke.py -v -m container`
 
 Expected: PASS; Docker-unavailable or registry-unavailable skips/failures remain an open Level 3 gate.
 
-- [ ] **Step 3: Verify Compose and repository cleanliness**
+- [x] **Step 3: Verify Compose and repository cleanliness**
 
 Run: `cd deploy/home-alarm && docker compose --env-file tests/fixtures/compose.env config --quiet`
 
@@ -723,11 +730,11 @@ Run: `git status --short && git diff --check && git ls-files deploy/home-alarm |
 
 Expected: no accidental root `uv.lock` staging, no whitespace errors, and only intended home-alarm files tracked.
 
-- [ ] **Step 4: Record exact evidence without secrets**
+- [x] **Step 4: Record exact evidence without secrets**
 
 Write the date, git commit, immutable RuView digest, Python/uv/Docker versions, each command, pass/fail count, and any explicitly unmet hardware/VPS gates. Do not paste environment values, IP addresses other than documentation ranges, bot identifiers, image environment dumps, or CSI payloads.
 
-- [ ] **Step 5: Commit the software evidence**
+- [x] **Step 5: Commit the software evidence**
 
 ```bash
 git add deploy/home-alarm/verification/software-verification.md
