@@ -42,6 +42,7 @@ class AlarmEngine:
     def observe(self, sample: SensorSample, now: float) -> list[AlarmEvent]:
         """Apply a health and presence sample at a monotonic time."""
         if not sample.healthy_esp32:
+            self._absence_started_at = None
             return self._observe_unhealthy(now)
 
         events = self._observe_healthy()

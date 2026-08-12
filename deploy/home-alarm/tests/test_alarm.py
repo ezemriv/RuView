@@ -115,6 +115,21 @@ def test_returning_presence_resets_the_all_clear_timer() -> None:
     assert [event.kind for event in events] == [AlarmEventKind.ALL_CLEAR]
 
 
+def test_unhealthy_gap_restarts_the_all_clear_timer() -> None:
+    """An unhealthy interval must break continuous healthy absence."""
+    engine = AlarmEngine()
+    engine.restore(PersistedState(armed=True))
+    engine.observe(healthy(True, 1), 0.0)
+    engine.observe(healthy(False, 2), 1.0)
+    engine.observe(unhealthy(), 30.0)
+
+    assert engine.observe(healthy(False, 3), 61.0) == []
+    assert engine.observe(healthy(False, 4), 120.999) == []
+    events = engine.observe(healthy(False, 5), 121.0)
+
+    assert [event.kind for event in events] == [AlarmEventKind.ALL_CLEAR]
+
+
 def test_offline_and_recovery_are_emitted_once_at_their_boundaries() -> None:
     """Thirty unhealthy seconds trigger one offline event and one later recovery."""
     engine = AlarmEngine()
