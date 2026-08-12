@@ -1,6 +1,12 @@
 # Local Claude config (contains WiFi credentials and machine-specific paths)
 CLAUDE.local.md
 
+# Home alarm operator secrets. Keep the reviewed templates tracked.
+deploy/home-alarm/.env
+deploy/home-alarm/.env.*
+!deploy/home-alarm/.env.example
+!deploy/home-alarm/tests/fixtures/compose.env
+
 # ESP32 firmware build artifacts and local config (contains WiFi credentials)
 firmware/esp32-csi-node/build/
 firmware/esp32-csi-node/sdkconfig
