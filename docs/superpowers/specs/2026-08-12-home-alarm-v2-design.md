@@ -1,6 +1,15 @@
 # RuView Home Alarm v2 Design
 
-**Status:** Approved for implementation on 2026-08-12
+**Status:** Implemented and Levels 1–3 verified on 2026-08-12
+
+**Implementation outcome:** The implementation completed on
+`codex/upstream-home-alarm-v2-implementation` through `cc66b478`. The dated
+software evidence is in
+`deploy/home-alarm/verification/software-verification.md`. This design is the
+historical architectural contract; mutable status and the strictly sequential
+integration/Level 4 checklist live only in
+`docs/status/home-alarm-v2.md`. Do not re-execute its completed implementation
+work.
 
 ## Goal
 
@@ -161,7 +170,7 @@ layers, or logs. Telegram and RuView use different tokens.
 - Both services use `restart: unless-stopped` and independent health checks.
 - The sensing health check proves its process is alive; the alarm's active
   polling determines whether real ESP32 data is available.
-- Alarm health proves its main event loop and both supervised tasks are alive.
+- Alarm health proves its main event loop and all supervised worker loops are alive.
 - A RuView outage does not disarm the alarm or rewrite stored state.
 - A Telegram outage does not stop sensing supervision.
 - Sensor-offline and sensor-recovered messages are transition-based to prevent
@@ -198,8 +207,12 @@ real Telegram token, CSI data, or external network.
 - Validate the rendered Compose configuration with all example substitutions.
 - Build the alarm image from a clean context.
 - Start the pinned RuView service in explicit simulation mode for this test
-  only and verify the alarm can authenticate, observe state changes, and
-  restore armed state after container recreation.
+  only and independently verify its bearer boundary, honest non-ESP32 source,
+  and restricted ports.
+- Route only the alarm-under-test to a clearly named synthetic ESP32-shaped
+  HTTP service. Verify alarm-originated bearer-authenticated polling through
+  credential-free request evidence, drive a sensing transition, and restore
+  armed state after container recreation.
 - Confirm the host publishes RuView HTTP only on `127.0.0.1` and does not
   publish port 3001.
 - Scan the resulting diff and image configuration for secrets.
@@ -226,6 +239,10 @@ With physical board access and VPS credentials:
 
 This level is the only basis for claiming that the deployed hardware alarm is
 operational.
+
+Record its redacted evidence in
+`deploy/home-alarm/verification/level4-acceptance.md`; use
+`docs/status/home-alarm-v2.md` for sequencing and completion state.
 
 ## Explicitly excluded
 

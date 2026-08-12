@@ -1,0 +1,68 @@
+services:
+  sensing-server:
+    image: docker.io/ruvnet/wifi-densepose@sha256:fac235102bebc8a9bfc5445645bc6908d02cf0244154e59b7bab297a574b5fae
+    restart: unless-stopped
+    environment:
+      CSI_SOURCE: esp32
+      RUVIEW_API_TOKEN: ${RUVIEW_API_TOKEN:?RUVIEW_API_TOKEN is required}
+      RUVIEW_UDP_ALLOW: ${RUVIEW_UDP_ALLOW:?RUVIEW_UDP_ALLOW is required}
+      RUVIEW_UDP_BIND: 0.0.0.0
+    ports:
+      - target: 3000
+        published: "3000"
+        host_ip: 127.0.0.1
+        protocol: tcp
+      - target: 5005
+        published: "5005"
+        protocol: udp
+    networks:
+      - alarm-net
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "kill -0 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  telegram-alarm:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:?TELEGRAM_BOT_TOKEN is required}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:?TELEGRAM_CHAT_ID is required}
+      RUVIEW_API_TOKEN: ${RUVIEW_API_TOKEN:?RUVIEW_API_TOKEN is required}
+      RUVIEW_BASE_URL: http://sensing-server:3000
+      STATE_PATH: /data/state.json
+      HEALTH_PATH: /tmp/ruview-alarm-health.json
+    depends_on:
+      sensing-server:
+        condition: service_healthy
+    networks:
+      - alarm-net
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=16m,uid=10001,gid=10001,mode=1777
+    volumes:
+      - alarm-state:/data
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-m", "ruview_alarm.healthcheck"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+networks:
+  alarm-net:
+
+volumes:
+  alarm-state:
