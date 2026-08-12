@@ -8,6 +8,10 @@ Current project status, completed software work, and the sequential integration/
 checklist are maintained in [`docs/status/home-alarm-v2.md`](../../docs/status/home-alarm-v2.md).
 Agents must complete and mark only the first unchecked step there.
 
+For execution by a separate Codex session already running on the VPS, use the
+scoped [`VPS-HANDOFF.md`](VPS-HANDOFF.md). That agent owns only VPS Step 4;
+the Mac session retains ownership of the physical ESP32 and later Step 5.
+
 ## Prepare secrets and deployment
 
 On the VPS, create the production environment file from the reviewed template and protect it:

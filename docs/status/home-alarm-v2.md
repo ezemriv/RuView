@@ -183,6 +183,11 @@ must match the pinned build output; a build alone is not completion.
   `/32` in `RUVIEW_UDP_ALLOW` and the VPS UDP/5005 firewall rule and remove the
   discovery opening.
 
+When a separate Codex session runs on the VPS, route it through the scoped
+[`VPS-HANDOFF.md`](../../deploy/home-alarm/VPS-HANDOFF.md). The VPS agent must
+complete only this step and return its redacted evidence commit before the Mac
+session begins Step 5.
+
 **Depends on:** Step 3.
 **Complete when:** deployment/config checks pass and redacted evidence proves
 both allowlists use the same `/32` with no broad discovery rule left active.
