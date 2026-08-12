@@ -165,3 +165,27 @@ merge history.
 
 This is software integration evidence only. Level 4 physical ESP32/VPS
 acceptance remains unperformed.
+
+## Main-branch integration confirmation
+
+**Date:** 2026-08-12
+**Merge commit:** `89fb575c`
+**Target branch:** `main`
+
+The fork's seven historical commits and the reviewed upstream/Home Alarm
+history were merged with four explicit conflict resolutions: current
+`.gitignore`, root agent instructions, `CLAUDE.md`, and current ESP32-S3
+firmware defaults. The obsolete v1 root alarm Dockerfile, status file,
+entrypoints, Telegram script, and status command were removed from the merged
+tip; their history remains available through Git.
+
+Fresh focused evidence on the pending merge tree:
+
+- frozen dependency sync passed after resolving the locked build backend;
+- 121 non-container tests passed and 1 container test was deselected;
+- Ruff passed; and
+- production Compose validation passed quietly.
+
+The known unrelated root `uv.lock` remained untracked and outside the merge.
+This focused gate covers Home Alarm and the four conflict boundaries; it does
+not claim a repository-wide Rust, archived-Python, or harness verification.

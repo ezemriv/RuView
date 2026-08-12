@@ -1,10 +1,10 @@
 # RuView Home Alarm v2 — Current State and Next Steps
 
 **Last reconciled:** 2026-08-12
-**Integrated source branch:** `codex/upstream-home-alarm-v2-implementation`
-was deleted locally after its clean worktree and merged result were verified
+**Current branch:** `main`; Home Alarm/upstream merge commit `89fb575c`
+**Historical source branches:** `codex/upstream-home-alarm-v2-implementation`
+and `codex/upstream-home-alarm-v2` (merged and eligible for local deletion)
 **Implementation and software-verification tip:** `cc66b478`
-**Integration branch:** `codex/upstream-home-alarm-v2`; local merge commit `8f3563f6`
 **Upstream baseline:** RuView `v2235` at `de27336fa1db971d4689fd2db19610e8a7966dee`
 
 This is the canonical living status and restart handoff for Home Alarm v2.
@@ -15,8 +15,8 @@ for their own scope, but mutable status and next-step ownership live here.
 
 - Software implementation is complete.
 - Levels 1–3 are complete and independently reviewed.
-- The feature branch is integrated locally and verified at merge commit
-  `8f3563f6`; it has not been pushed or deployed to the VPS.
+- Home Alarm v2 and its upstream baseline are merged into local `main` at
+  `89fb575c`; the VPS has not been deployed.
 - Level 4 is in progress: the physical ESP32-S3 has been clean-erased,
   full-flashed, and boot-verified. VPS deployment, NVS network provisioning,
   and live end-to-end acceptance remain, so the real home alarm is not yet
