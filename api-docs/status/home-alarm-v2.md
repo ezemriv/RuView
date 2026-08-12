@@ -3,7 +3,8 @@
 **Last reconciled:** 2026-08-12
 **Current branch:** `main`; Home Alarm/upstream merge commit `89fb575c`
 **Historical source branches:** `codex/upstream-home-alarm-v2-implementation`
-and `codex/upstream-home-alarm-v2` (merged and eligible for local deletion)
+and `codex/upstream-home-alarm-v2` (merged and deleted locally); the historical
+remote `home-security-telegram` branch remains as a rollback reference
 **Implementation and software-verification tip:** `cc66b478`
 **Upstream baseline:** RuView `v2235` at `de27336fa1db971d4689fd2db19610e8a7966dee`
 
