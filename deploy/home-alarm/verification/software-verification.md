@@ -47,6 +47,12 @@ UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run pytest tests/test_co
 Result: PASS — 1 passed, 4 deselected in 120.31s (exit 0). The immutable
 container recreation test ran and passed.
 
+```console
+docker ps --format '{{.Names}} {{.Status}} {{.Ports}}'
+docker image ls --format '{{.Repository}}:{{.Tag}}' | rg '^ruview-alarm-smoke-' || true
+docker volume ls --format '{{.Name}}' | rg '^ruview-alarm-smoke-' || true
+```
+
 Post-smoke read-only Docker check: only the pre-existing `ruview-alarm`
 container remained; no `ruview-alarm-smoke-*` containers or volumes remained.
 There were unrelated, pre-existing smoke-tagged images with identifiers that
@@ -62,13 +68,14 @@ docker compose --env-file tests/fixtures/compose.env config --quiet
 git status --short
 git diff --check
 git ls-files deploy/home-alarm | sort
+git diff -- uv.lock
 ```
 
 Results: Compose configuration PASS (exit 0); status had no tracked changes
 before this evidence file; whitespace check PASS (exit 0); tracked home-alarm
 paths were listed for review. The ignored SDD workspace and local Python caches
-are not tracked source. `git diff -- uv.lock` was empty and `uv.lock` was not
-staged or modified.
+are not tracked source. `git diff -- uv.lock` exited 0 with no output;
+`uv.lock` was not staged or modified.
 
 ## Acceptance still required (Level 4)
 
