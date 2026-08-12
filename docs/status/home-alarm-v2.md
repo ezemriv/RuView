@@ -130,18 +130,18 @@ worktree has no tracked changes (the known unrelated root `uv.lock` remains
 preserved), frozen sync/non-container/Ruff/Compose/container gates pass without
 a skip, and the merge commit plus command outcomes are recorded here.
 
-### 2. Prepare Level 4 operator inputs
+### 2. Prepare ESP32 Level 4 inputs
 
-- [ ] Confirm the exact physical ESP32-S3 board and UART port, obtain explicit
-  authorization for the flash, confirm VPS SSH/firewall authority, and create
-  the production mode-`0600` `.env` through an operator-controlled channel.
+- [x] Confirm the exact physical ESP32-S3 board and UART port and obtain
+  explicit authorization for the read-only probe and later full flash after
+  final target confirmation.
 
-**Blocked (2026-08-12):** the UART bridge is now detected at
-`/dev/cu.wchusbserial58FA0422681`, but its USB identity does not establish the
-exact ESP32-S3 board model or flash capacity. Confirm those printed board
-details and explicitly authorize replacing its current firmware. VPS
-SSH/firewall authority and the protected production environment file also
-remain to be confirmed. See the Step 2 discovery entries in the
+**Outcome (2026-08-12):** packaging and authorized read-only probes confirmed
+a Freenove ESP32-S3-WROOM Board Lite (`FNK0099`, revision `A`), ESP32-S3 QFN56
+revision 0.2, 8 MB PSRAM, 8 MB quad flash, and UART
+`/dev/cu.wchusbserial58FA0422681`. The source photo and all unique identifiers
+were deliberately not retained. Full-flash authorization was granted subject
+to final target confirmation. See the Step 2 entries in the
 [`Level 4 acceptance record`](../../deploy/home-alarm/verification/level4-acceptance.md#step-2-evidence--operator-inputs-and-authority).
 
 **Depends on:** Step 1.
@@ -167,9 +167,11 @@ must match the pinned build output; a build alone is not completion.
 
 ### 4. Deploy and close the VPS network boundary
 
-- [ ] Deploy the pinned Compose stack, temporarily discover the home egress
-  address, then install the same `/32` in `RUVIEW_UDP_ALLOW` and the VPS
-  UDP/5005 firewall rule and remove the discovery opening.
+- [ ] Confirm VPS SSH/firewall authority, create the production mode-`0600`
+  `.env` through an operator-controlled channel, deploy the pinned Compose
+  stack, temporarily discover the home egress address, then install the same
+  `/32` in `RUVIEW_UDP_ALLOW` and the VPS UDP/5005 firewall rule and remove the
+  discovery opening.
 
 **Depends on:** Step 3.
 **Complete when:** deployment/config checks pass and redacted evidence proves

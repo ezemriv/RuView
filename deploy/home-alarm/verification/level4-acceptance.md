@@ -28,9 +28,7 @@ Record, when authorized:
 - date/time plus a non-personal operator-role label or redacted approval
   reference;
 - board model and non-sensitive confirmed UART identifier;
-- explicit flash authorization outcome;
-- VPS SSH/firewall authorization outcome; and
-- mode-`0600` production environment-file check outcome without values.
+- explicit read-only probe and flash authorization outcomes.
 
 ### Discovery — 2026-08-12T17:11:57Z
 
@@ -54,6 +52,22 @@ Record, when authorized:
 - No serial query, reset, erase, flash, provisioning, or credential action was
   performed.
 
+### Packaging and read-only probe — 2026-08-12T17:23:20Z
+
+- Packaging identification: Freenove ESP32-S3-WROOM Board Lite, product code
+  `FNK0099`, revision marking `A` (`A1B0` packaging mark).
+- The source packaging photo was inspected locally but not retained. Its box
+  serial number and barcode were omitted.
+- Authorized `esptool` probe: ESP32-S3 QFN56 revision 0.2, 40 MHz crystal,
+  8 MB embedded PSRAM, 8 MB quad flash at 3.3 V.
+- Confirmed UART: `/dev/cu.wchusbserial58FA0422681`.
+- The probe-reported unique chip address was not recorded.
+- Read-only probes completed and hard-reset the board; no erase, write,
+  provisioning, or credential action occurred.
+- The operator authorized replacing the firmware after final board/UART/flash
+  command confirmation.
+- The operator controls the VPS but explicitly deferred VPS work to Step 4.
+
 ## Step 3 evidence — firmware and ESP32-S3
 
 Record, when authorized:
@@ -69,6 +83,8 @@ Record, when authorized:
 
 Record, when authorized:
 
+- VPS SSH/firewall authorization outcome;
+- mode-`0600` production environment-file check outcome without values;
 - pinned image/configuration identifiers and Compose command outcomes;
 - temporary discovery opening start/end and removal outcome;
 - confirmation that `RUVIEW_UDP_ALLOW` and the firewall use the same home
