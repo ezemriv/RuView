@@ -150,15 +150,21 @@ authority decisions are recorded in
 [`deploy/home-alarm/verification/level4-acceptance.md`](../../deploy/home-alarm/verification/level4-acceptance.md);
 no credential value is committed.
 
-### 3. Build, hash, flash, and provision the ESP32-S3
+### 3. Build, hash, and flash the ESP32-S3
 
 - [ ] Follow the pinned ESP-IDF 5.4 display-less build in the runbook, record
   the four firmware hashes, derive and record the exact build-produced flash
   offsets/command using the authoritative
   [`firmware/esp32-csi-node/README.md`](../../firmware/esp32-csi-node/README.md#2-flash),
   re-confirm the board and UART target, perform the explicitly authorized
-  initial full flash, use the wrapper for NVS settings, and capture a redacted
-  serial log showing boot, DHCP, and UDP sends.
+  initial full flash, and capture a redacted serial boot log. NVS network
+  provisioning is deferred until the VPS exists in Step 5.
+
+**Blocked (2026-08-12):** the pinned display-less build and four hashes are
+recorded, but no flash has occurred. Awaiting final confirmation of Freenove
+`FNK0099`, ESP32-S3 revision 0.2, 8 MB flash, UART
+`/dev/cu.wchusbserial58FA0422681`, and the exact four-offset command in the
+[`Level 4 acceptance record`](../../deploy/home-alarm/verification/level4-acceptance.md#pinned-build--2026-08-12t172800z).
 
 **Depends on:** Step 2.
 **Complete when:** hashes, command outcomes, confirmed target, and redacted
@@ -179,9 +185,11 @@ both allowlists use the same `/32` with no broad discovery rule left active.
 
 ### 5. Execute live alarm acceptance and rollback
 
-- [ ] Verify live `source: esp32`, advancing ticks/latest data, Telegram
-  authorization, arm/intrusion/all-clear, alarm/container/VPS restart restore,
-  and rollback to the recorded prior images/configuration.
+- [ ] Provision the ESP32 NVS with the home Wi-Fi and deployed VPS target,
+  capture redacted serial DHCP/UDP evidence, then verify live `source: esp32`,
+  advancing ticks/latest data, Telegram authorization,
+  arm/intrusion/all-clear, alarm/container/VPS restart restore, and rollback
+  to the recorded prior images/configuration.
 
 **Depends on:** Step 4.
 **Complete when:** a dated redacted acceptance record contains outcomes for

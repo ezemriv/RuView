@@ -76,8 +76,53 @@ Record, when authorized:
 - SHA-256 for bootloader, partition table, OTA data, and application binary;
 - exact flash offsets/command derived from the pinned build output;
 - re-confirmed board/UART target and flash outcome;
-- NVS provisioning outcome; and
-- redacted serial evidence of boot, DHCP, and UDP sends.
+- redacted serial boot evidence.
+
+### Pinned build — 2026-08-12T17:28:00Z
+
+- Firmware source commit: `54384cba` (no firmware source change afterward).
+- Build image: `espressif/idf:v5.4`, resolved image digest
+  `sha256:f1e9f69dc052b9afc7801ca884e0ef40c17e014bb05ce73d9c09d29290bd17fb`.
+- Target/defaults: `esp32s3` with
+  `sdkconfig.defaults;sdkconfig.defaults.devkitc`; display support disabled.
+- Build result: PASS; application size `0xde590`, with 57% of the smallest
+  application partition free.
+- Optional WASM3 source was absent, so Tier 3 WASM support was omitted. The
+  Home Alarm CSI path does not require it.
+- Existing compiler warning: unused local `data_type` in `mmwave_sensor.c`.
+- Generated `build/`, `sdkconfig`, managed components, and dependency lock are
+  ignored artifacts; no tracked firmware file changed.
+
+SHA-256:
+
+```text
+d0776468f70e9a44cb3bb746fc130d780e4f110396f4fde08c33ff29f30b9cec  bootloader.bin
+67222c257c0477501fd4002275638dc4262b34eb68235b8289fb1337054d322b  partition-table.bin
+7d2c7ac4888bfd75cd5f56e8d61f69595121183afc81556c876732fd3782c62f  ota_data_initial.bin
+cac28dab4f207818721ba82f63816ca51ab637c1afbc5209c1397c278f8a0514  esp32-csi-node.bin
+```
+
+Build-derived flash settings and offsets: DIO, 8 MB, 80 MHz;
+bootloader `0x0`, partition table `0x8000`, OTA data `0xf000`, application
+`0x20000`.
+
+Pending exact command, to run from `deploy/home-alarm` only after final target
+confirmation:
+
+```bash
+UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run python -m esptool \
+  --chip esp32s3 --port /dev/cu.wchusbserial58FA0422681 --baud 460800 \
+  --before default_reset --after hard_reset write_flash \
+  --flash_mode dio --flash_size 8MB --flash_freq 80m \
+  0x0 ../../firmware/esp32-csi-node/build/bootloader/bootloader.bin \
+  0x8000 ../../firmware/esp32-csi-node/build/partition_table/partition-table.bin \
+  0xf000 ../../firmware/esp32-csi-node/build/ota_data_initial.bin \
+  0x20000 ../../firmware/esp32-csi-node/build/esp32-csi-node.bin
+```
+
+- Final target confirmation: pending.
+- Full-flash outcome: not run.
+- Serial boot evidence: pending.
 
 ## Step 4 evidence — VPS deployment and network closure
 
@@ -95,6 +140,8 @@ Record, when authorized:
 
 Record, when authorized:
 
+- NVS provisioning outcome;
+- redacted serial evidence of DHCP and UDP sends;
 - live health reports `source: esp32` and advancing tick/latest-data outcomes;
 - authorized and unauthorized Telegram control outcomes;
 - arm, intrusion, continuous-absence all-clear, and offline/recovery outcomes;
