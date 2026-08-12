@@ -27,7 +27,7 @@ class AlarmEventKind(StrEnum):
 class PersistedState(BaseModel):
     """Versioned service state stored on disk."""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", strict=True)
 
     version: Literal[1] = 1
     armed: bool = False

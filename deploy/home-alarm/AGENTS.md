@@ -14,7 +14,7 @@
 uv run pytest -v -m 'not container'
 uv run ruff check src tests scripts
 uv run --extra provision python scripts/provision_esp32.py --help
-docker compose config
+docker compose config --quiet
 ```
 
 Run the provisioning helper only while physically present at the confirmed board. It accepts

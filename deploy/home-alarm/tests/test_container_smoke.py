@@ -21,6 +21,7 @@ RUVIEW_IMAGE = (
     "sha256:fac235102bebc8a9bfc5445645bc6908d02cf0244154e59b7bab297a574b5fae"
 )
 FAKE_TELEGRAM_IMAGE = "python:3.12-slim"
+FAKE_SENSING_IMAGE = "python:3.12-slim"
 _MAX_RESPONSE_BYTES = 1_048_576
 
 
@@ -244,6 +245,14 @@ def test_smoke_compose_builds_only_the_alarm_image() -> None:
     assert services["telegram-alarm"]["build"]
     assert services["telegram-fake"]["image"] == FAKE_TELEGRAM_IMAGE
     assert "build" not in services["telegram-fake"]
+    assert services["fake-sensing"]["image"] == FAKE_SENSING_IMAGE
+    assert "build" not in services["fake-sensing"]
+    assert services["telegram-alarm"]["environment"]["RUVIEW_BASE_URL"] == (
+        "http://fake-sensing:8081"
+    )
+    assert services["telegram-alarm"]["depends_on"] == {
+        "fake-sensing": {"condition": "service_healthy", "required": True}
+    }
     assert services["sensing-server"]["ports"] == [
         {
             "host_ip": "127.0.0.1",
@@ -262,11 +271,20 @@ def test_smoke_compose_builds_only_the_alarm_image() -> None:
             "target": 8080,
         }
     ]
+    assert services["fake-sensing"]["ports"] == [
+        {
+            "host_ip": "127.0.0.1",
+            "mode": "ingress",
+            "protocol": "tcp",
+            "published": "0",
+            "target": 8081,
+        }
+    ]
 
 
 @pytest.mark.container
-def test_container_recreation_preserves_arm_state_without_weakening_source_auth() -> None:
-    """Verify API auth and durable Telegram state while simulation stays non-ESP32."""
+def test_container_alarm_polls_authenticated_fake_and_observes_incident_lifecycle() -> None:
+    """Verify separated immutable and synthetic sensing evidence plus durable alarm state."""
     environment = os.environ.copy()
     daemon = _run(["docker", "info"], environment=environment, check=False)
     if daemon.returncode != 0:
@@ -298,8 +316,16 @@ def test_container_recreation_preserves_arm_state_without_weakening_source_auth(
         ).stdout.strip()
         telegram_fake = _inspect_json("container", telegram_fake_id, environment)
         telegram_fake_port = _loopback_port(telegram_fake, "8080/tcp")
+        fake_sensing_id = _compose(
+            project, environment, "ps", "-q", "fake-sensing"
+        ).stdout.strip()
+        fake_sensing = _inspect_json("container", fake_sensing_id, environment)
+        fake_sensing_port = _loopback_port(fake_sensing, "8081/tcp")
+        alarm_id = _compose(project, environment, "ps", "-q", "telegram-alarm").stdout.strip()
+        alarm = _inspect_json("container", alarm_id, environment)
         sensing_url = f"http://127.0.0.1:{sensing_port}"
         telegram_fake_url = f"http://127.0.0.1:{telegram_fake_port}"
+        fake_sensing_url = f"http://127.0.0.1:{fake_sensing_port}"
 
         def authenticated_latest_is_available() -> bool:
             status, _ = _request_json(
@@ -333,6 +359,30 @@ def test_container_recreation_preserves_arm_state_without_weakening_source_auth(
         assert "3001/tcp" not in sensing["NetworkSettings"]["Ports"]
         assert "5005/udp" not in sensing["NetworkSettings"]["Ports"]
         assert set(telegram_fake["NetworkSettings"]["Ports"]) == {"8080/tcp"}
+        assert set(fake_sensing["NetworkSettings"]["Ports"]) == {"8081/tcp"}
+        assert "RUVIEW_BASE_URL=http://fake-sensing:8081" in alarm["Config"]["Env"]
+
+        missing_fake_status, _ = _request_json(
+            f"{fake_sensing_url}/api/v1/sensing/latest"
+        )
+        wrong_fake_status, _ = _request_json(
+            f"{fake_sensing_url}/api/v1/sensing/latest",
+            headers={"Authorization": "Bearer wrong-smoke-token"},
+        )
+        assert missing_fake_status == 401
+        assert wrong_fake_status == 401
+
+        def alarm_authenticated_polling_is_observed() -> bool:
+            status, observations = _request_json(f"{fake_sensing_url}/requests")
+            if status != 200:
+                return False
+            authenticated = observations["authenticated_requests"]
+            return authenticated.get("/health", 0) >= 1 and authenticated.get(
+                "/api/v1/sensing/latest", 0
+            ) >= 1
+
+        _wait_until(alarm_authenticated_polling_is_observed)
+        _, polling_before = _request_json(f"{fake_sensing_url}/requests")
 
         update = {
             "update_id": 1,
@@ -346,6 +396,36 @@ def test_container_recreation_preserves_arm_state_without_weakening_source_auth(
             return "Alarm is armed." in observations["messages"]
 
         _wait_until(alarm_is_armed)
+        status, _ = _request_json(
+            f"{fake_sensing_url}/presence",
+            method="POST",
+            payload={"presence": True},
+        )
+        assert status == 200
+
+        def intrusion_is_reported() -> bool:
+            _, observations = _request_json(f"{telegram_fake_url}/messages")
+            return "Intrusion detected while armed." in observations["messages"]
+
+        _wait_until(intrusion_is_reported)
+        _, polling_after = _request_json(f"{fake_sensing_url}/requests")
+        for path in ("/health", "/api/v1/sensing/latest"):
+            assert polling_after["authenticated_requests"][path] > polling_before[
+                "authenticated_requests"
+            ][path]
+
+        status, _ = _request_json(
+            f"{fake_sensing_url}/presence",
+            method="POST",
+            payload={"presence": False},
+        )
+        assert status == 200
+
+        def all_clear_is_reported() -> bool:
+            _, observations = _request_json(f"{telegram_fake_url}/messages")
+            return "All clear after continuous absence." in observations["messages"]
+
+        _wait_until(all_clear_is_reported)
         before_recreate = _compose(
             project,
             environment,

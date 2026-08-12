@@ -14,9 +14,15 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
       RUVIEW_API_TOKEN: ${RUVIEW_API_TOKEN}
+      RUVIEW_BASE_URL: http://fake-sensing:8081
       TELEGRAM_BASE_URL: http://telegram-fake:8080
       POLL_SECONDS: "0.25"
+      ALL_CLEAR_SECONDS: "0.5"
+      OFFLINE_SECONDS: "0.5"
       TELEGRAM_POLL_SECONDS: "1"
+    depends_on: !override
+      fake-sensing:
+        condition: service_healthy
     volumes: !override
       - alarm-smoke-state:/data
 
@@ -40,6 +46,38 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
+
+  fake-sensing:
+    image: python:3.12-slim
+    restart: unless-stopped
+    user: "10001:10001"
+    read_only: true
+    entrypoint: ["python3", "/fake_sensing_api.py"]
+    command: []
+    environment:
+      RUVIEW_API_TOKEN: ${RUVIEW_API_TOKEN}
+    volumes:
+      - ./tests/fake_sensing_api.py:/fake_sensing_api.py:ro
+    ports:
+      - target: 8081
+        published: "0"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    networks:
+      - alarm-net
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/ready', timeout=1).read()
+      interval: 1s
+      timeout: 2s
+      retries: 10
 
 volumes:
   alarm-smoke-state:

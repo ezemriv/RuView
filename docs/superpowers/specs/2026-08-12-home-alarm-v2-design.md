@@ -198,8 +198,12 @@ real Telegram token, CSI data, or external network.
 - Validate the rendered Compose configuration with all example substitutions.
 - Build the alarm image from a clean context.
 - Start the pinned RuView service in explicit simulation mode for this test
-  only and verify the alarm can authenticate, observe state changes, and
-  restore armed state after container recreation.
+  only and independently verify its bearer boundary, honest non-ESP32 source,
+  and restricted ports.
+- Route only the alarm-under-test to a clearly named synthetic ESP32-shaped
+  HTTP service. Verify alarm-originated bearer-authenticated polling through
+  credential-free request evidence, drive a sensing transition, and restore
+  armed state after container recreation.
 - Confirm the host publishes RuView HTTP only on `127.0.0.1` and does not
   publish port 3001.
 - Scan the resulting diff and image configuration for secrets.

@@ -21,9 +21,11 @@ then pull, rebuild from pinned inputs, and start it:
 ```bash
 docker compose pull
 docker compose build --pull
-docker compose config
+docker compose config --quiet
 docker compose up -d
 ```
+
+`config --quiet` validates the production file without rendering its runtime token values.
 
 `sensing-server` uses `kill -0 1` as a container healthcheck. That proves process liveness,
 not API readiness. Verify `/health` and an authenticated
@@ -54,6 +56,7 @@ For Wi-Fi or VPS changes after that initial full flash, use the interactive wrap
 directory. It has no password CLI argument; it prompts with hidden input, requires an exact
 serial-port retype, forces ESP32-S3 plus UDP port `5005`, supplies a private temporary state
 directory, and invokes the upstream NVS writer in process.
+The helper rejects redirected or piped stdin; run it only from an interactive terminal.
 
 ```bash
 cd deploy/home-alarm

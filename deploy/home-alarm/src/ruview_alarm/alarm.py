@@ -6,8 +6,10 @@ from ruview_alarm.models import AlarmAction, AlarmEvent, AlarmEventKind, Persist
 class AlarmEngine:
     """Convert alarm commands and sensor samples into deterministic events."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, all_clear_seconds: float = 60.0, offline_seconds: float = 30.0) -> None:
         """Start a new, disarmed alarm instance."""
+        self._all_clear_seconds = all_clear_seconds
+        self._offline_seconds = offline_seconds
         self._armed = False
         self._previous_healthy_presence = False
         self._active_incident = False
@@ -57,7 +59,7 @@ class AlarmEngine:
                 self._absence_started_at = None
             elif self._absence_started_at is None:
                 self._absence_started_at = now
-            elif now - self._absence_started_at >= 60.0:
+            elif now - self._absence_started_at >= self._all_clear_seconds:
                 events.append(self._event(AlarmEventKind.ALL_CLEAR, "All clear after continuous absence."))
                 self._active_incident = False
                 self._absence_started_at = None
@@ -72,7 +74,7 @@ class AlarmEngine:
     def _observe_unhealthy(self, now: float) -> list[AlarmEvent]:
         if self._unhealthy_started_at is None:
             self._unhealthy_started_at = now
-        elif now - self._unhealthy_started_at >= 30.0 and not self._offline_notified:
+        elif now - self._unhealthy_started_at >= self._offline_seconds and not self._offline_notified:
             self._offline_notified = True
             return [self._event(AlarmEventKind.SENSOR_OFFLINE, "Sensor is offline.")]
         return []

@@ -79,6 +79,22 @@ def test_retry_delays_are_1_2_4_8_16_then_30_forever() -> None:
     assert list(itertools.islice(retry_delays(), 8)) == [1, 2, 4, 8, 16, 30, 30, 30]
 
 
+def test_service_injects_validated_transition_thresholds(tmp_path: Path) -> None:
+    """Settings overrides must control the service engine instead of being ignored."""
+    settings = settings_for(tmp_path).model_copy(update={"all_clear_seconds": 2.0})
+    service = AlarmService(settings, BlockingRuView(), BlockingTelegram())
+    service._engine.command(AlarmAction.ARM)
+    service._engine.observe(SensorSample(healthy_esp32=True, presence=False, tick=1), 0.0)
+    service._engine.observe(SensorSample(healthy_esp32=True, presence=True, tick=2), 1.0)
+    service._engine.observe(SensorSample(healthy_esp32=True, presence=False, tick=3), 2.0)
+
+    events = service._engine.observe(
+        SensorSample(healthy_esp32=True, presence=False, tick=4), 4.0
+    )
+
+    assert [event.text for event in events] == ["All clear after continuous absence."]
+
+
 @pytest.mark.parametrize(("armed", "text"), [(True, "Alarm restored: armed"), (False, "Alarm restored: disarmed")])
 async def test_service_announces_restored_startup_state(
     tmp_path: Path, armed: bool, text: str
@@ -371,40 +387,50 @@ async def test_telegram_outage_retries_without_stopping_sensing(tmp_path: Path) 
     assert sleeps[0] == 1
 
 
-async def test_callback_retry_marks_liveness_before_every_attempt(tmp_path: Path) -> None:
-    """A slow failed callback request must refresh liveness again before its retry."""
-    now = 0.0
-    attempts: list[tuple[float, float]] = []
+async def test_failed_callback_ack_is_bounded_and_does_not_wedge_later_updates(
+    tmp_path: Path,
+) -> None:
+    """An expired callback must not block command notifications or polling progress."""
+    attempts: list[str] = []
+    saved: list[PersistedState] = []
 
-    class SlowAcknowledgementTelegram(BlockingTelegram):
-        service: AlarmService
-
+    class InvalidCallbackTelegram(BlockingTelegram):
         async def acknowledge_callback(self, callback_id: str) -> None:
-            nonlocal now
-            attempts.append((now, self.service._heartbeats["telegram"]))
-            if len(attempts) == 1:
-                now += 59.0
-                raise TelegramError("answerCallbackQuery")
+            attempts.append(callback_id)
+            raise TelegramError("answerCallbackQuery", status_code=400)
 
-    async def advancing_sleep(delay: float) -> None:
-        nonlocal now
-        now += delay
-        await asyncio.sleep(0)
+    async def unexpected_sleep(delay: float) -> None:
+        pytest.fail(f"callback acknowledgement retried after {delay}")
 
-    telegram = SlowAcknowledgementTelegram()
+    telegram = InvalidCallbackTelegram()
     service = AlarmService(
         settings_for(tmp_path),
         BlockingRuView(),
         telegram,
-        sleep=advancing_sleep,
-        utc_now=lambda: now,
+        save_state_fn=lambda path, state: saved.append(state),
+        sleep=unexpected_sleep,
+        utc_now=lambda: 99.0,
     )
-    telegram.service = service
-    service._heartbeats = {"telegram": now}
+    service._heartbeats = {"telegram": 17.0}
 
-    await service._acknowledge_with_retry("callback-1")
+    await service._apply_update(
+        TelegramUpdate(
+            update_id=1,
+            chat_id=123,
+            action=AlarmAction.ARM,
+            callback_id="expired-1",
+        )
+    )
+    await service._apply_update(
+        TelegramUpdate(update_id=2, chat_id=123, action=AlarmAction.STATUS)
+    )
 
-    assert attempts == [(0.0, 0.0), (60.0, 60.0)]
+    queued = [service._notifications.get_nowait(), service._notifications.get_nowait()]
+
+    assert attempts == ["expired-1"]
+    assert [state.telegram_offset for state in saved] == [2, 3]
+    assert queued == ["Alarm is armed.", "Alarm is armed."]
+    assert service._heartbeats["telegram"] == 17.0
 
 
 async def test_unexpected_worker_return_terminates_the_service(tmp_path: Path) -> None:
@@ -497,19 +523,23 @@ async def test_watchdog_stale_worker_terminates_taskgroup_and_cancels_siblings(
     assert telegram.polled.is_set()
 
 
-async def test_thirty_second_ruview_outage_emits_sensor_offline_event(tmp_path: Path) -> None:
-    """Capped retry polling must observe enough unhealthy time to emit sensor offline."""
+async def test_ruview_attempts_use_full_backoff_while_offline_timing_is_observed(
+    tmp_path: Path,
+) -> None:
+    """HTTP attempts keep exact backoff while offline detection advances independently."""
     now = 0.0
+    attempt_times: list[float] = []
 
     class FailedRuView:
         def __init__(self) -> None:
-            self.calls = 0
-            self.crossed_boundary = asyncio.Event()
+            self.sixth_attempt = asyncio.Event()
+            self.block = asyncio.Event()
 
         async def sample(self) -> SensorSample:
-            self.calls += 1
-            if self.calls == 9:
-                self.crossed_boundary.set()
+            attempt_times.append(now)
+            if len(attempt_times) == 6:
+                self.sixth_attempt.set()
+                await self.block.wait()
             raise RuViewError("health")
 
     async def advancing_sleep(delay: float) -> None:
@@ -528,10 +558,10 @@ async def test_thirty_second_ruview_outage_emits_sensor_offline_event(tmp_path: 
     )
 
     task = asyncio.create_task(service._sensing_loop())
-    await asyncio.wait_for(ruv_client.crossed_boundary.wait(), timeout=1.0)
-    await asyncio.sleep(0)
+    await asyncio.wait_for(ruv_client.sixth_attempt.wait(), timeout=1.0)
     await cancel(task)
 
+    assert attempt_times == [0.0, 1.0, 3.0, 7.0, 15.0, 31.0]
     assert service._notifications.get_nowait() == "Sensor is offline."
 
 

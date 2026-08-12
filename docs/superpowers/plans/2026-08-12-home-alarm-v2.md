@@ -580,14 +580,16 @@ Expected: all tests PASS.
 
 - [ ] **Step 4: Add the production-like Compose smoke environment**
 
-The smoke override changes only `CSI_SOURCE` to `simulated`, removes production UDP publication, supplies sentinel credentials, points `TELEGRAM_BASE_URL` to a `telegram-fake` service, and mounts a temporary test volume. `tests/fake_telegram_api.py` is a standard-library HTTP service with Bot API-compatible `getUpdates`, `sendMessage`, and `answerCallbackQuery` routes plus test-only `/enqueue` and `/messages` control routes; it stores no credentials and is reachable from the host only on `127.0.0.1:18080`. The test must:
+The smoke override changes `CSI_SOURCE` to `simulated`, removes production UDP publication, supplies sentinel credentials, points `TELEGRAM_BASE_URL` to a `telegram-fake` service, routes only the alarm to a clearly named `fake-sensing` service, and mounts a temporary test volume. The immutable RuView simulation remains running and is validated separately; it is never described as ESP32 data. `tests/fake_telegram_api.py` is a standard-library HTTP service with Bot API-compatible `getUpdates`, `sendMessage`, and `answerCallbackQuery` routes plus test-only `/enqueue` and `/messages` control routes. `tests/fake_sensing_api.py` requires the RuView bearer token for ESP32-shaped health/latest responses and exposes only credential-free request counts plus test-only presence control. Both fakes are reachable from the host only on ephemeral loopback ports. The test must:
 
 1. start the immutable RuView image and locally built alarm image;
-2. verify unauthorized `/api/v1/sensing/latest` returns 401 and bearer-authenticated access succeeds;
-3. recreate only `telegram-alarm` and verify its saved armed state remains true;
-4. inspect published ports and assert only `127.0.0.1:3000` is present and 3001 is absent;
-5. inspect the built alarm image environment/history and assert the sentinels are absent; and
-6. always run `docker compose down --volumes --remove-orphans` for its uniquely named project in `finally`.
+2. verify the immutable RuView endpoint rejects unauthenticated traffic, accepts the sentinel bearer token, reports a non-ESP32 simulation source, and remains separate from the alarm route;
+3. observe authenticated health/latest requests initiated by the alarm container against `fake-sensing` without recording credential values;
+4. enqueue `/arm`, drive false-to-true-to-false synthetic presence, and wait for intrusion and all-clear messages;
+5. recreate only `telegram-alarm` and verify its saved armed state remains true;
+6. inspect published ports and assert only loopback HTTP is present while 3001 and production UDP are absent;
+7. inspect the built alarm image environment/history and assert the sentinels are absent; and
+8. always run `docker compose down --volumes --remove-orphans` for its uniquely named project in `finally`.
 
 Mark this test `@pytest.mark.container`; skip only when `docker info` proves the daemon unavailable, and report that skip as an unmet Level 3 gate rather than a pass.
 

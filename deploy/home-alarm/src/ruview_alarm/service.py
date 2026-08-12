@@ -1,6 +1,7 @@
 """Supervised alarm orchestration with durable commands and isolated retries."""
 
 import asyncio
+import logging
 import time
 from collections.abc import Awaitable, Callable, Iterator
 from pathlib import Path
@@ -20,6 +21,7 @@ Sleep = Callable[[float], Awaitable[None]]
 HeartbeatWriter = Callable[[Path, dict[str, float]], None]
 
 _WORKER_MAX_AGES = {"sensing": 45.0, "telegram": 60.0, "notifications": 45.0}
+_LOGGER = logging.getLogger(__name__)
 
 
 class RuViewAdapter(Protocol):
@@ -76,7 +78,10 @@ class AlarmService:
         self._sleep = sleep
         self._utc_now = utc_now
         self._monotonic_now = monotonic_now
-        self._engine = AlarmEngine()
+        self._engine = AlarmEngine(
+            all_clear_seconds=settings.all_clear_seconds,
+            offline_seconds=settings.offline_seconds,
+        )
         self._notifications: asyncio.Queue[str] = asyncio.Queue()
         self._heartbeats: dict[str, float] = {}
         self._offset = 0
@@ -120,7 +125,7 @@ class AlarmService:
                     self._engine.observe(SensorSample(healthy_esp32=False), monotonic_now())
                 )
                 self._mark_live("sensing")
-                await self._sleep(min(next(delays), self._settings.poll_seconds))
+                await self._wait_through_outage(next(delays), monotonic_now)
                 continue
 
             self._queue_events(self._engine.observe(sample, monotonic_now()))
@@ -141,10 +146,10 @@ class AlarmService:
                 await self._sleep(next(delays))
                 continue
 
+            self._mark_live("telegram")
             delays = retry_delays()
             for update in updates:
                 await self._apply_update(update)
-                self._mark_live("telegram")
 
     async def _apply_update(self, update: TelegramUpdate) -> None:
         if update.update_id < self._offset:
@@ -155,19 +160,32 @@ class AlarmService:
         self._offset = next_offset
 
         if update.callback_id is not None:
-            await self._acknowledge_with_retry(update.callback_id)
+            await self._acknowledge_best_effort(update.callback_id)
         self._queue_events(events)
 
-    async def _acknowledge_with_retry(self, callback_id: str) -> None:
-        delays = retry_delays()
-        while True:
-            self._mark_live("telegram")
-            try:
-                await self._telegram.acknowledge_callback(callback_id)
-                return
-            except TelegramError:
-                self._mark_live("telegram")
-                await self._sleep(next(delays))
+    async def _acknowledge_best_effort(self, callback_id: str) -> None:
+        try:
+            await self._telegram.acknowledge_callback(callback_id)
+        except TelegramError as error:
+            _LOGGER.warning(
+                "Telegram callback acknowledgement failed; continuing polling (status=%s)",
+                error.status_code,
+            )
+
+    async def _wait_through_outage(
+        self,
+        retry_delay: float,
+        monotonic_now: Callable[[], float],
+    ) -> None:
+        remaining = retry_delay
+        while remaining > 0:
+            step = min(remaining, self._settings.poll_seconds)
+            await self._sleep(step)
+            remaining -= step
+            self._queue_events(
+                self._engine.observe(SensorSample(healthy_esp32=False), monotonic_now())
+            )
+            self._mark_live("sensing")
 
     async def _notification_loop(self) -> None:
         while True:

@@ -14,6 +14,31 @@ def unhealthy() -> SensorSample:
     return SensorSample(healthy_esp32=False)
 
 
+def test_configured_all_clear_threshold_controls_transition() -> None:
+    """A non-default validated threshold must control incident closure."""
+    engine = AlarmEngine(all_clear_seconds=2.0)
+    engine.command(AlarmAction.ARM)
+    engine.observe(healthy(False, 1), now=0.0)
+    engine.observe(healthy(True, 2), now=1.0)
+
+    assert engine.observe(healthy(False, 3), now=2.0) == []
+    assert engine.observe(healthy(False, 4), now=3.999) == []
+    assert [event.kind for event in engine.observe(healthy(False, 5), now=4.0)] == [
+        AlarmEventKind.ALL_CLEAR
+    ]
+
+
+def test_configured_offline_threshold_controls_transition() -> None:
+    """A non-default validated threshold must control sensor-offline reporting."""
+    engine = AlarmEngine(offline_seconds=3.0)
+
+    assert engine.observe(unhealthy(), now=10.0) == []
+    assert engine.observe(unhealthy(), now=12.999) == []
+    assert [event.kind for event in engine.observe(unhealthy(), now=13.0)] == [
+        AlarmEventKind.SENSOR_OFFLINE
+    ]
+
+
 def test_new_engine_is_disarmed_and_snapshot_retains_offset() -> None:
     """A new service must start disarmed and persist the supplied Telegram offset."""
     engine = AlarmEngine()

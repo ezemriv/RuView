@@ -102,3 +102,35 @@ def test_load_rejects_extra_fields(tmp_path: Path) -> None:
 
     with pytest.raises(ValidationError):
         load_state(path)
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"version":1,"armed":false}',
+        '{"version":1,"telegram_offset":null}',
+        '{"armed":false,"telegram_offset":null}',
+        '{"version":1,"armed":"false","telegram_offset":null}',
+        '{"version":1,"armed":false,"telegram_offset":"7"}',
+        '{"version":true,"armed":false,"telegram_offset":null}',
+    ],
+)
+def test_load_rejects_missing_or_coercive_state_fields(tmp_path: Path, payload: str) -> None:
+    """Every persisted field must be present with its exact JSON type."""
+    path = tmp_path / "state.json"
+    path.write_text(payload, encoding="utf-8")
+
+    with pytest.raises(ValueError):
+        load_state(path)
+
+
+def test_load_rejects_duplicate_state_keys(tmp_path: Path) -> None:
+    """A later duplicate member must never override an earlier durable value."""
+    path = tmp_path / "state.json"
+    path.write_text(
+        '{"version":1,"armed":true,"armed":false,"telegram_offset":7}',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        load_state(path)

@@ -1,7 +1,7 @@
 # Home Alarm Software Verification
 
-**Date (UTC):** 2026-08-12T12:59:17Z
-**Evidence commit (before this record):** `562b07ac8f9b72bda48733b7655c65b2098b1e3d`
+**Date (UTC):** 2026-08-12T13:46:26Z
+**Fix-wave base commit:** `53c7c9eaeadfbe7120ed15cd62b4c87600c4f826`
 **Pinned sensing image:** `docker.io/ruvnet/wifi-densepose@sha256:fac235102bebc8a9bfc5445645bc6908d02cf0244154e59b7bab297a574b5fae`
 
 This is a reproducible software evidence record. It is not hardware or VPS
@@ -30,7 +30,9 @@ Result: PASS — `Audited 39 packages in 3ms`. The tracked lock was unchanged.
 UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run pytest -v -m 'not container'
 ```
 
-Result: PASS — 109 passed, 1 deselected in 1.21s (exit 0).
+Result: PASS — 121 passed, 1 deselected in 1.29s (exit 0). This includes
+the hermetic service-integration scenarios for authenticated adapter traffic,
+Telegram control, sensing transitions, failure isolation, and client cleanup.
 
 ```console
 UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run ruff check src tests scripts
@@ -44,8 +46,23 @@ Result: PASS — `All checks passed!` (exit 0).
 UV_CACHE_DIR=/private/tmp/ruview-home-alarm-uv-cache uv run pytest tests/test_container_smoke.py -v -m container
 ```
 
-Result: PASS — 1 passed, 4 deselected in 120.31s (exit 0). The immutable
-container recreation test ran and passed.
+Result: PASS — 1 passed, 4 deselected in 40.27s (exit 0).
+
+The gate keeps two evidence paths separate:
+
+- **MEASURED:** the running sensing container used the exact immutable image
+  digest above with `CSI_SOURCE=simulated`; its bearer boundary accepted the
+  sentinel only, its responses reported an honest non-ESP32 source, HTTP was
+  loopback-only, and neither production UDP nor port 3001 was published.
+- **SYNTHETIC:** only the alarm-under-test was routed to the clearly named
+  `fake-sensing` service. Credential-free request counts proved that the alarm
+  container made bearer-authenticated `/health` and latest-sensing requests.
+  The test then drove false -> true -> false synthetic presence through HTTP,
+  observed intrusion and all-clear messages from the real alarm container,
+  and recreated that container to verify its armed state was restored.
+
+The synthetic service is not RuView simulation evidence and is not real ESP32
+or CSI evidence.
 
 ```console
 docker ps --format '{{.Names}} {{.Status}} {{.Ports}}'
@@ -54,11 +71,8 @@ docker volume ls --format '{{.Name}}' | rg '^ruview-alarm-smoke-' || true
 ```
 
 Post-smoke read-only Docker check: only the pre-existing `ruview-alarm`
-container remained; no `ruview-alarm-smoke-*` containers or volumes remained.
-There were unrelated, pre-existing smoke-tagged images with identifiers that
-did not match this run; this record does not attribute them to the run or
-claim their removal. The smoke test itself verified cleanup of its exact,
-unique image.
+container remained, and no `ruview-alarm-smoke-*` volumes remained. The smoke
+test itself verified cleanup of its exact unique project and alarm image.
 
 ## Compose and repository checks
 
@@ -71,11 +85,11 @@ git ls-files deploy/home-alarm | sort
 git diff -- uv.lock
 ```
 
-Results: Compose configuration PASS (exit 0); status had no tracked changes
-before this evidence file; whitespace check PASS (exit 0); tracked home-alarm
-paths were listed for review. The ignored SDD workspace and local Python caches
-are not tracked source. `git diff -- uv.lock` exited 0 with no output;
-`uv.lock` was not staged or modified.
+Results: Compose configuration PASS with no rendered output (exit 0);
+whitespace check PASS (exit 0); status contained only the intended final-fix
+files before commit; tracked home-alarm paths were listed for review. The
+ignored SDD workspace and local Python caches are not tracked source.
+`git diff -- uv.lock` exited 0 with no output; `uv.lock` was not modified.
 
 ## Acceptance still required (Level 4)
 
@@ -90,6 +104,7 @@ redacted logs.
 
 ## Gate status
 
-Levels 1–3 are complete: locked dependencies, the full non-container suite,
-Ruff, Compose configuration, and the immutable container smoke gate passed.
-Level 4 remains operator-assisted and unperformed.
+Levels 1–3 are complete: locked dependencies, the full unit/service-integration
+suite, Ruff, Compose validation, the immutable RuView boundary checks, and the
+synthetic alarm-container sensing lifecycle passed. Level 4 remains
+operator-assisted and unperformed; this record makes no hardware or VPS claim.

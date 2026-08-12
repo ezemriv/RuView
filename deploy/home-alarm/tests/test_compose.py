@@ -23,6 +23,14 @@ SENSING_IMAGE = (
 )
 
 
+def test_runbook_validates_production_compose_without_rendering_secrets() -> None:
+    """The operator command must validate production Compose without printing values."""
+    runbook = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+
+    assert "docker compose config --quiet" in runbook
+    assert "\ndocker compose config\n" not in runbook
+
+
 def _compose_config(env_file: Path) -> tuple[dict[str, Any], str]:
     environment = os.environ.copy()
     for name in REQUIRED_ENVIRONMENT:

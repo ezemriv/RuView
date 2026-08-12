@@ -1,6 +1,7 @@
 """Safety tests for the interactive ESP32 provisioning wrapper."""
 
 import importlib.util
+import io
 import shutil
 import sys
 from pathlib import Path
@@ -11,6 +12,16 @@ import pytest
 
 SCRIPT_PATH = Path(__file__).resolve().parents[1] / "scripts" / "provision_esp32.py"
 PROVISIONER_PATH = Path(__file__).resolve().parents[3] / "firmware" / "esp32-csi-node" / "provision.py"
+
+
+class _InteractiveStdin(io.StringIO):
+    def isatty(self) -> bool:
+        return True
+
+
+def simulate_interactive_stdin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give the helper an explicit TTY-like stdin boundary."""
+    monkeypatch.setattr(sys, "stdin", _InteractiveStdin())
 
 
 @pytest.fixture
@@ -29,6 +40,7 @@ def test_success_invokes_s3_nvs_provisioner_with_private_state(
     provision: ModuleType,
 ) -> None:
     """A confirmed run passes only the fixed, NVS-only upstream arguments."""
+    simulate_interactive_stdin(monkeypatch)
     private_state_dir = tmp_path / "provision-state"
     captured: dict[str, object] = {}
 
@@ -169,6 +181,7 @@ def test_port_mismatch_cancels_without_requesting_password(
     provision: ModuleType,
 ) -> None:
     """Only an exact serial-port retype authorizes provisioning."""
+    simulate_interactive_stdin(monkeypatch)
     monkeypatch.setattr("builtins.input", lambda _prompt: "/dev/cu.WRONG")
     monkeypatch.setattr(
         provision.getpass,
@@ -195,6 +208,7 @@ def test_keyboard_cancellation_is_safe(
     provision: ModuleType,
 ) -> None:
     """An operator interrupt cancels without a traceback or provisioning."""
+    simulate_interactive_stdin(monkeypatch)
 
     def cancel(_prompt: str) -> str:
         raise KeyboardInterrupt
@@ -220,6 +234,7 @@ def test_upstream_output_and_errors_redact_password_and_restore_argv(
     provision: ModuleType,
 ) -> None:
     """Secrets cannot escape through upstream output, errors, or persistent argv."""
+    simulate_interactive_stdin(monkeypatch)
     secret = "uniquely-sensitive-wifi-password"
     original_argv = ["pytest", "sentinel"]
     monkeypatch.setattr(sys, "argv", original_argv)
@@ -256,6 +271,7 @@ def test_upstream_failure_cannot_leave_nvs_csv_in_operator_directory(
     provision: ModuleType,
 ) -> None:
     """The upstream CSV fallback stays inside the removed private state directory."""
+    simulate_interactive_stdin(monkeypatch)
     private_state_dir = tmp_path / "private-state"
     original_directory = Path.cwd()
 
@@ -284,3 +300,33 @@ def test_upstream_failure_cannot_leave_nvs_csv_in_operator_directory(
     ) == 1
     assert Path.cwd() == original_directory
     assert not private_state_dir.exists()
+
+
+def test_redirected_stdin_is_rejected_before_prompts_or_upstream(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    provision: ModuleType,
+) -> None:
+    """Piped confirmation and password data can never authorize an NVS write."""
+    monkeypatch.setattr(sys, "stdin", io.StringIO("/dev/cu.TEST\nscripted-secret\n"))
+    monkeypatch.setattr(
+        "builtins.input",
+        lambda _prompt: pytest.fail("confirmation prompt read redirected stdin"),
+    )
+    monkeypatch.setattr(
+        provision.getpass,
+        "getpass",
+        lambda _prompt: pytest.fail("password prompt accepted redirected stdin"),
+    )
+    monkeypatch.setattr(
+        provision.runpy,
+        "run_path",
+        lambda *_args, **_kwargs: pytest.fail("upstream provisioner ran"),
+    )
+
+    result = provision.main(
+        ["--port", "/dev/cu.TEST", "--ssid", "Home", "--vps-ip", "203.0.113.10", "--node-id", "1"]
+    )
+
+    assert result == 2
+    assert "interactive terminal" in capsys.readouterr().err

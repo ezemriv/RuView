@@ -68,6 +68,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if any(argument == "--password" or argument.startswith("--password=") for argument in arguments):
         _parser().error("--password is forbidden; enter it only at the hidden prompt")
     args = _parser().parse_args(arguments)
+    if sys.stdin is None or not sys.stdin.isatty():
+        print("Provisioning requires an interactive terminal on stdin.", file=sys.stderr)
+        return 2
 
     try:
         confirmation = input(f"Retype the exact serial port to confirm {args.port}: ")
