@@ -93,3 +93,14 @@ def test_check_health_rejects_non_strict_or_incomplete_json(
 def test_check_health_rejects_a_missing_file(tmp_path: Path) -> None:
     """No published heartbeat means the process is not healthy."""
     assert check_health(tmp_path / "missing.json", now=1_000.0) == 1
+
+
+def test_check_health_rejects_hostile_unbounded_integer_without_raising(tmp_path: Path) -> None:
+    """An unbounded JSON integer must fail closed rather than crash the health process."""
+    path = tmp_path / "health.json"
+    path.write_text(
+        '{"main":' + "9" * 1_000 + ',"sensing":1000,"telegram":1000,"notifications":1000}',
+        encoding="utf-8",
+    )
+
+    assert check_health(path, now=1_000.0) == 1

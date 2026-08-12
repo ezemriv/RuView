@@ -3,9 +3,9 @@
 import asyncio
 import itertools
 import logging
+import time
 from contextlib import suppress
 from pathlib import Path
-import time
 
 import httpx
 import pytest
@@ -200,6 +200,30 @@ async def test_every_update_advances_durable_offset_even_when_inert(tmp_path: Pa
     assert all(not state.armed for state in saved)
 
 
+async def test_out_of_order_consumed_update_cannot_regress_state_or_offset(tmp_path: Path) -> None:
+    """A descending update ID must not replay its action or move the durable offset backward."""
+    saved: list[PersistedState] = []
+    service = AlarmService(
+        settings_for(tmp_path),
+        BlockingRuView(),
+        BlockingTelegram(),
+        save_state_fn=lambda path, state: saved.append(state),
+    )
+    service._offset = 12
+
+    await service._apply_update(
+        TelegramUpdate(update_id=12, chat_id=123, action=AlarmAction.ARM)
+    )
+    await service._apply_update(
+        TelegramUpdate(update_id=10, chat_id=123, action=AlarmAction.DISARM)
+    )
+
+    assert saved == [PersistedState(armed=True, telegram_offset=13)]
+    assert service._engine.snapshot(service._offset) == PersistedState(
+        armed=True, telegram_offset=13
+    )
+
+
 class RetryingTelegram(UpdateTelegram):
     """Fail one startup delivery without disrupting polling or state."""
 
@@ -347,6 +371,42 @@ async def test_telegram_outage_retries_without_stopping_sensing(tmp_path: Path) 
     assert sleeps[0] == 1
 
 
+async def test_callback_retry_marks_liveness_before_every_attempt(tmp_path: Path) -> None:
+    """A slow failed callback request must refresh liveness again before its retry."""
+    now = 0.0
+    attempts: list[tuple[float, float]] = []
+
+    class SlowAcknowledgementTelegram(BlockingTelegram):
+        service: AlarmService
+
+        async def acknowledge_callback(self, callback_id: str) -> None:
+            nonlocal now
+            attempts.append((now, self.service._heartbeats["telegram"]))
+            if len(attempts) == 1:
+                now += 59.0
+                raise TelegramError("answerCallbackQuery")
+
+    async def advancing_sleep(delay: float) -> None:
+        nonlocal now
+        now += delay
+        await asyncio.sleep(0)
+
+    telegram = SlowAcknowledgementTelegram()
+    service = AlarmService(
+        settings_for(tmp_path),
+        BlockingRuView(),
+        telegram,
+        sleep=advancing_sleep,
+        utc_now=lambda: now,
+    )
+    telegram.service = service
+    service._heartbeats = {"telegram": now}
+
+    await service._acknowledge_with_retry("callback-1")
+
+    assert attempts == [(0.0, 0.0), (60.0, 60.0)]
+
+
 async def test_unexpected_worker_return_terminates_the_service(tmp_path: Path) -> None:
     """A normally returning child must fail supervision and cancel its siblings."""
     service = AlarmService(settings_for(tmp_path), BlockingRuView(), BlockingTelegram())
@@ -406,12 +466,84 @@ async def test_watchdog_writes_complete_loop_heartbeat_snapshot(tmp_path: Path) 
     assert snapshots[0]["main"] == 1_000.0
 
 
-async def test_run_alarm_closes_both_remote_clients_when_cancelled(
+async def test_watchdog_stale_worker_terminates_taskgroup_and_cancels_siblings(
+    tmp_path: Path,
+) -> None:
+    """A stale worker heartbeat must fail supervision and cancel blocked peer loops."""
+    now = 1_000.0
+    ruv_client = BlockingRuView()
+    telegram = BlockingTelegram()
+
+    async def advancing_watchdog_sleep(delay: float) -> None:
+        nonlocal now
+        if delay == 10.0:
+            now += 46.0
+        await asyncio.sleep(0)
+
+    service = AlarmService(
+        settings_for(tmp_path),
+        ruv_client,
+        telegram,
+        heartbeat_writer=lambda path, snapshot: None,
+        sleep=advancing_watchdog_sleep,
+        utc_now=lambda: now,
+    )
+
+    with pytest.raises(ExceptionGroup) as error:
+        await asyncio.wait_for(service.run(), timeout=1.0)
+
+    assert "sensing loop heartbeat stale" in repr(error.value)
+    assert ruv_client.sampled.is_set()
+    assert telegram.polled.is_set()
+
+
+async def test_thirty_second_ruview_outage_emits_sensor_offline_event(tmp_path: Path) -> None:
+    """Capped retry polling must observe enough unhealthy time to emit sensor offline."""
+    now = 0.0
+
+    class FailedRuView:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.crossed_boundary = asyncio.Event()
+
+        async def sample(self) -> SensorSample:
+            self.calls += 1
+            if self.calls == 9:
+                self.crossed_boundary.set()
+            raise RuViewError("health")
+
+    async def advancing_sleep(delay: float) -> None:
+        nonlocal now
+        now += delay
+        await asyncio.sleep(0)
+
+    ruv_client = FailedRuView()
+    service = AlarmService(
+        settings_for(tmp_path),
+        ruv_client,
+        BlockingTelegram(),
+        sleep=advancing_sleep,
+        utc_now=lambda: now,
+        monotonic_now=lambda: now,
+    )
+
+    task = asyncio.create_task(service._sensing_loop())
+    await asyncio.wait_for(ruv_client.crossed_boundary.wait(), timeout=1.0)
+    await asyncio.sleep(0)
+    await cancel(task)
+
+    assert service._notifications.get_nowait() == "Sensor is offline."
+
+
+async def test_taskgroup_failure_cancels_siblings_and_closes_both_remote_clients(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Cancellation must leave neither remote connection pool open."""
+    """A fatal worker must cancel real TaskGroup peers before both pools close."""
     clients: list[object] = []
-    started = asyncio.Event()
+    polling = asyncio.Event()
+    delivering = asyncio.Event()
+    poll_cancelled = asyncio.Event()
+    delivery_cancelled = asyncio.Event()
     block = asyncio.Event()
 
     class FakeHttpClient:
@@ -426,17 +558,43 @@ async def test_run_alarm_closes_both_remote_clients_when_cancelled(
         async def __aexit__(self, *args: object) -> None:
             self.closed = True
 
-    async def blocking_run(self: AlarmService) -> None:
-        started.set()
-        await block.wait()
+    class FatalRuView:
+        async def sample(self) -> SensorSample:
+            await polling.wait()
+            await delivering.wait()
+            raise RuntimeError("fatal sensing invariant")
+
+    class CancelledTelegram:
+        async def get_updates(self, offset: int, timeout: int) -> list[TelegramUpdate]:
+            polling.set()
+            try:
+                await block.wait()
+            except asyncio.CancelledError:
+                poll_cancelled.set()
+                raise
+            raise AssertionError("unreachable")
+
+        async def acknowledge_callback(self, callback_id: str) -> None:
+            raise AssertionError(callback_id)
+
+        async def send_message(self, text: str) -> None:
+            delivering.set()
+            try:
+                await block.wait()
+            except asyncio.CancelledError:
+                delivery_cancelled.set()
+                raise
 
     monkeypatch.setattr("ruview_alarm.service.httpx.AsyncClient", FakeHttpClient)
-    monkeypatch.setattr(AlarmService, "run", blocking_run)
+    monkeypatch.setattr("ruview_alarm.service.RuViewClient", lambda *args: FatalRuView())
+    monkeypatch.setattr("ruview_alarm.service.TelegramClient", lambda *args: CancelledTelegram())
 
-    task = asyncio.create_task(run_alarm(settings_for(tmp_path)))
-    await asyncio.wait_for(started.wait(), timeout=1.0)
-    await cancel(task)
+    with pytest.raises(ExceptionGroup) as error:
+        await asyncio.wait_for(run_alarm(settings_for(tmp_path)), timeout=1.0)
 
+    assert "fatal sensing invariant" in repr(error.value)
+    assert poll_cancelled.is_set()
+    assert delivery_cancelled.is_set()
     assert len(clients) == 2
     assert all(client.closed for client in clients)
     assert all(client.timeout.connect is not None for client in clients)
@@ -463,3 +621,21 @@ def test_process_entry_uses_utc_logging_and_redacts_fatal_exception_values(
     assert exit_code == 1
     assert sentinel not in caplog.text
     assert logging.Formatter.converter is time.gmtime
+
+
+def test_process_logging_silences_http_client_token_bearing_info_records(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """HTTP request INFO records must not expose Telegram's tokenized URL."""
+    sentinel = "DO_NOT_LOG_TELEGRAM_TOKEN"
+    process_entry._configure_logging()
+
+    with caplog.at_level(logging.INFO):
+        logging.getLogger("httpx").info(
+            "HTTP Request: GET https://api.telegram.org/bot%s/getUpdates", sentinel
+        )
+        logging.getLogger("httpcore.connection").info(
+            "connect_tcp to bot%s", sentinel
+        )
+
+    assert sentinel not in caplog.text

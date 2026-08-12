@@ -64,6 +64,7 @@ class AlarmService:
         heartbeat_writer: HeartbeatWriter = write_heartbeat,
         sleep: Sleep = asyncio.sleep,
         utc_now: Callable[[], float] = time.time,
+        monotonic_now: Callable[[], float] | None = None,
     ) -> None:
         """Create a service with injectable side-effect boundaries."""
         self._settings = settings
@@ -74,6 +75,7 @@ class AlarmService:
         self._write_heartbeat = heartbeat_writer
         self._sleep = sleep
         self._utc_now = utc_now
+        self._monotonic_now = monotonic_now
         self._engine = AlarmEngine()
         self._notifications: asyncio.Queue[str] = asyncio.Queue()
         self._heartbeats: dict[str, float] = {}
@@ -108,19 +110,20 @@ class AlarmService:
     async def _sensing_loop(self) -> None:
         delays = retry_delays()
         loop = asyncio.get_running_loop()
+        monotonic_now = self._monotonic_now or loop.time
         while True:
             self._mark_live("sensing")
             try:
                 sample = await self._ruview.sample()
             except RuViewError:
                 self._queue_events(
-                    self._engine.observe(SensorSample(healthy_esp32=False), loop.time())
+                    self._engine.observe(SensorSample(healthy_esp32=False), monotonic_now())
                 )
                 self._mark_live("sensing")
                 await self._sleep(min(next(delays), self._settings.poll_seconds))
                 continue
 
-            self._queue_events(self._engine.observe(sample, loop.time()))
+            self._queue_events(self._engine.observe(sample, monotonic_now()))
             self._mark_live("sensing")
             delays = retry_delays()
             await self._sleep(self._settings.poll_seconds)
@@ -144,6 +147,8 @@ class AlarmService:
                 self._mark_live("telegram")
 
     async def _apply_update(self, update: TelegramUpdate) -> None:
+        if update.update_id < self._offset:
+            return
         next_offset = update.update_id + 1
         events = self._engine.command(update.action) if update.action is not None else []
         self._save_state(self._settings.state_path, self._engine.snapshot(next_offset))
@@ -156,6 +161,7 @@ class AlarmService:
     async def _acknowledge_with_retry(self, callback_id: str) -> None:
         delays = retry_delays()
         while True:
+            self._mark_live("telegram")
             try:
                 await self._telegram.acknowledge_callback(callback_id)
                 return

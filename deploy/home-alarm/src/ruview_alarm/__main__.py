@@ -18,6 +18,8 @@ def _configure_logging() -> None:
         format="%(asctime)sZ %(levelname)s %(name)s %(message)s",
         datefmt="%Y-%m-%dT%H:%M:%S",
     )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 
 def main() -> int:

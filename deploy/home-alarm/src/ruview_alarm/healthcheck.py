@@ -57,7 +57,11 @@ def check_health(path: Path, now: float) -> int:
         timestamp = payload[name]
         if isinstance(timestamp, bool) or not isinstance(timestamp, (int, float)):
             return 1
-        if not math.isfinite(timestamp) or timestamp > now or now - timestamp > maximum_age:
+        try:
+            finite = math.isfinite(timestamp)
+        except OverflowError:
+            return 1
+        if not finite or timestamp > now or now - timestamp > maximum_age:
             return 1
     return 0
 
