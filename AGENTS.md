@@ -212,3 +212,35 @@ flashing, and require a real boot/runtime log for hardware claims.
 - `docs/adr/ADR-285-homecore-wasm-first-metaharness.md`
 - `docs/adr/ADR-028-esp32-capability-audit.md`
 - `docs/user-guide.md`
+
+<!-- BEGIN CODEX PROJECT MEMORY -->
+## Project Memory
+
+### Memory Usage
+
+This repository uses a tracked, non-sensitive Codex memory layer.
+
+- Read this managed block before work in this repo.
+- Read `memory/INDEX.md` before substantial work, then open only the referenced memory files relevant to the task.
+- After substantial work or durable architecture/workflow changes, use `$codex-project-update`.
+- Never store secrets, credentials, private CSI, personal data, raw operational evidence, or sensitive restore state in tracked memory.
+
+### Active Context
+
+| Topic | Note |
+|---|---|
+| Home Alarm v2 | Software implementation and Levels 1–3 verification are complete on its feature branch; integration is pending. |
+| Hardware/VPS acceptance | Level 4 remains operator-assisted and requires confirmed hardware, serial, VPS, firewall, Telegram, restart, and rollback evidence. |
+| Evidence labels | Keep immutable RuView boundary checks `MEASURED`, fake ESP32-shaped alarm lifecycle checks `SYNTHETIC`, and never promote either to real-hardware evidence. |
+
+### Active Workstreams
+
+| Name | Status | Notes |
+|---|---|---|
+| Home Alarm v2 | Ready for integration decision | Production package is under `deploy/home-alarm/`; read its scoped `AGENTS.md` and runbook before work. |
+
+### Deep Memory
+
+- `memory/INDEX.md`
+- `memory/architecture/home-alarm-v2.md`
+<!-- END CODEX PROJECT MEMORY -->
