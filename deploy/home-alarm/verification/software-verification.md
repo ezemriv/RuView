@@ -144,7 +144,7 @@ unperformed Level 4 verdict.
 **Merge commit:** `8f3563f6103b4829113bdd2d69690c17c7a01956`
 
 The authorized local merge used `--no-ff` and preserved the implementation
-branch for rollback. On the merged checkout:
+branch through merged-result verification. On the merged checkout:
 
 - frozen sync installed the 39 locked packages without changing the tracked
   lock file;
@@ -159,6 +159,9 @@ inside the command sandbox. Their permission-enabled reruns passed without a
 code change. Four exact `ruview-alarm-smoke-*` image tags left by interrupted
 verification were removed; the final read-only check found no smoke image or
 volume, and the pre-existing `ruview-alarm` container remained running.
+After verification, the clean feature worktree and now-merged local source
+branch were removed; source commit `b3c07898` remains reachable through the
+merge history.
 
 This is software integration evidence only. Level 4 physical ESP32/VPS
 acceptance remains unperformed.

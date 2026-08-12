@@ -1,7 +1,8 @@
 # RuView Home Alarm v2 — Current State and Next Steps
 
 **Last reconciled:** 2026-08-12
-**Feature branch:** `codex/upstream-home-alarm-v2-implementation`
+**Integrated source branch:** `codex/upstream-home-alarm-v2-implementation`
+was deleted locally after its clean worktree and merged result were verified
 **Implementation and software-verification tip:** `cc66b478`
 **Integration branch:** `codex/upstream-home-alarm-v2`; local merge commit `8f3563f6`
 **Upstream baseline:** RuView `v2235` at `de27336fa1db971d4689fd2db19610e8a7966dee`
@@ -118,7 +119,9 @@ Agents must execute this checklist strictly from the first unchecked step.
 **Outcome (2026-08-12):** merged locally as `8f3563f6`; frozen sync,
 121 non-container tests, Ruff, Compose validation, and the isolated container
 smoke all passed on the merged checkout. The unrelated root `uv.lock` and the
-pre-existing `ruview-alarm` container were preserved. See
+pre-existing `ruview-alarm` container were preserved. The clean feature
+worktree and now-merged local source branch were then removed; their commits
+remain in the merge history. See
 [`Local integration confirmation`](../../deploy/home-alarm/verification/software-verification.md#local-integration-confirmation).
 
 **Prerequisite:** explicit user choice to merge locally.
