@@ -159,6 +159,45 @@ Record, when authorized:
   `/32`, without recording the real address; and
 - proof that no broad discovery/firewall rule remains.
 
+### VPS deployment and network closure — 2026-08-13T06:21:17Z
+
+- Direct SSH and VPS firewall authority were confirmed through the
+  operator-controlled terminal; no operator identity was recorded.
+- The production `.env` was created with mode `0600`; the four
+  required key names were verified. Values were not displayed or recorded,
+  and the file remains ignored by Git.
+- `docker compose config --quiet`, `docker compose pull`,
+  `docker compose build --pull`, and `docker compose up -d`: PASS.
+- Pinned sensing image:
+  `docker.io/ruvnet/wifi-densepose@sha256:fac235102bebc8a9bfc5445645bc6908d02cf0244154e59b7bab297a574b5fae`.
+- Fresh Compose checks: `compose_services_healthy=true` for
+  `sensing-server` and `telegram-alarm`. Authenticated `/health` and
+  `/api/v1/sensing/latest` returned HTTP 200
+  (`authenticated_health=true`, `authenticated_latest=true`), and an
+  unauthenticated latest request was rejected
+  (`unauthenticated_latest_rejected=true`). These are VPS
+  deployment-boundary checks, not proof of live ESP32 sensing.
+- Fresh listener checks: `tcp3000_loopback_only=true` and
+  `udp5005_listener=true`.
+- Operator-attested redacted UFW verifier output was
+  `ufw_active=true udp5005_lines=1 exact_source_lines=1 broad_lines=`. The
+  empty `broad_lines=` field means zero matches. Thus one exact UDP/5005
+  source rule matched the application `/32` internally
+  (`same_home_/32_match=true`), with no broad or discovery rule remaining
+  (`no_broad_or_discovery_rule=true`); the real address is intentionally
+  omitted.
+- No temporary discovery opening was used
+  (`temporary_discovery_rule=false`): the direct SSH `SSH_CONNECTION` source
+  supplied the home egress address. The same `/32` was used for
+  `RUVIEW_UDP_ALLOW` and UFW.
+- Both Hermes gateways remained active/running with unchanged `NRestarts=0`
+  (`hermes_preserved=true`). The unrelated `camofox-browser` remained running
+  with its loopback endpoint healthy (`camofox_preserved=true`) and was not
+  modified.
+- Step 4 verdict: PASS for VPS deployment and network-boundary closure. Step 5
+  NVS provisioning, live ESP32 sensing, Telegram lifecycle checks, restart
+  restoration, and rollback remain pending.
+
 ## Step 5 evidence — live lifecycle, restoration, and rollback
 
 Record, when authorized:

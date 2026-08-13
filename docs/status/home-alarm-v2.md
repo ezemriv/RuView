@@ -1,6 +1,6 @@
 # RuView Home Alarm v2 — Current State and Next Steps
 
-**Last reconciled:** 2026-08-12
+**Last reconciled:** 2026-08-13
 **Current branch:** `main`; Home Alarm/upstream merge commit `89fb575c`
 **Historical source branches:** `codex/upstream-home-alarm-v2-implementation`
 and `codex/upstream-home-alarm-v2` (merged and deleted locally); the historical
@@ -17,13 +17,13 @@ for their own scope, but mutable status and next-step ownership live here.
 - Software implementation is complete.
 - Levels 1–3 are complete and independently reviewed.
 - Home Alarm v2 and its upstream baseline are merged into local `main` at
-  `89fb575c`; the VPS has not been deployed.
+  `89fb575c`; the pinned VPS stack is deployed and its network boundary is
+  closed to the operator-confirmed home `/32`.
 - Level 4 is in progress: the physical ESP32-S3 has been clean-erased,
-  full-flashed, and boot-verified. VPS deployment, NVS network provisioning,
-  and live end-to-end acceptance remain, so the real home alarm is not yet
-  operational.
-- No real token, chat ID, Wi-Fi credential, VPS secret, or private CSI was
-  read or committed.
+  full-flashed, and boot-verified. NVS network provisioning and live
+  end-to-end acceptance remain, so the real home alarm is not yet operational.
+- No credential value, home IP, or private CSI was displayed, retained in
+  evidence, or committed.
 
 ## How the project reached this state
 
@@ -178,7 +178,7 @@ must match the pinned build output; a build alone is not completion.
 
 ### 4. Deploy and close the VPS network boundary
 
-- [ ] Confirm VPS SSH/firewall authority, create the production mode-`0600`
+- [x] Confirm VPS SSH/firewall authority, create the production mode-`0600`
   `.env` through an operator-controlled channel, deploy the pinned Compose
   stack, temporarily discover the home egress address, then install the same
   `/32` in `RUVIEW_UDP_ALLOW` and the VPS UDP/5005 firewall rule and remove the
@@ -192,6 +192,32 @@ session begins Step 5.
 **Depends on:** Step 3.
 **Complete when:** deployment/config checks pass and redacted evidence proves
 both allowlists use the same `/32` with no broad discovery rule left active.
+
+**Outcome (2026-08-13):** direct SSH and VPS firewall authority were confirmed
+through the operator-controlled terminal. The production `.env` was created
+with mode `0600`; the four required key names were present and no
+values were displayed or recorded. `docker compose config --quiet`, `pull`,
+`build --pull`, and `up -d` all passed for the pinned sensing image
+`docker.io/ruvnet/wifi-densepose@sha256:fac235102bebc8a9bfc5445645bc6908d02cf0244154e59b7bab297a574b5fae`.
+Fresh checks found `compose_services_healthy=true`,
+`authenticated_health=true`, `authenticated_latest=true`,
+`unauthenticated_latest_rejected=true`, `tcp3000_loopback_only=true`, and
+`udp5005_listener=true`. The operator-attested redacted UFW verifier reported
+one UDP/5005 line with one exact source match and no broad matches
+(`broad_lines=` was empty, therefore zero);
+`same_home_/32_match=true` and `no_broad_or_discovery_rule=true`, with no real
+address recorded. No temporary discovery opening was needed
+(`temporary_discovery_rule=false`) because the direct SSH `SSH_CONNECTION`
+source supplied the home egress address. Both Hermes gateways remained
+active/running with unchanged `NRestarts=0` (`hermes_preserved=true`). The
+unrelated `camofox-browser` remained running with its loopback endpoint healthy
+(`camofox_preserved=true`) and was not modified. See the
+[`VPS deployment and network closure`](../../deploy/home-alarm/verification/level4-acceptance.md#vps-deployment-and-network-closure--2026-08-13t062117z)
+acceptance entry and the redacted operator report.
+
+**Step 4 verdict:** PASS for VPS deployment and network-boundary closure. Step
+5 is now the first unchecked step; ESP32 NVS provisioning and live hardware
+acceptance remain pending, so the alarm is not yet operational.
 
 ### 5. Execute live alarm acceptance and rollback
 
